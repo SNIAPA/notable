@@ -1,5 +1,6 @@
 package com.ethran.notable.editor
 
+import com.ethran.notable.api.EditorBridge
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -210,6 +211,11 @@ fun EditorView(
             onDispose {
                 viewModel.onDispose(page)
             }
+        }
+
+        DisposableEffect(page, history) {
+            EditorBridge.attach(page, history, bookId)
+            onDispose { EditorBridge.detach(page) }
         }
 
 
