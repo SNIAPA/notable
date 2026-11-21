@@ -445,6 +445,7 @@ class NotebookSyncService @Inject constructor(
             local.parentFolderId != remote.parentFolderId ||
             local.defaultBackground != remote.defaultBackground ||
             local.defaultBackgroundType != remote.defaultBackgroundType ||
+            local.pageMode != remote.pageMode ||
             local.linkedExternalUri != remote.linkedExternalUri ||
             local.createdAt != remote.createdAt
 

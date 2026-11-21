@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -17,6 +18,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -294,6 +297,57 @@ fun InkTextField(
                 }
             },
         )
+    }
+}
+
+/**
+ * A segmented control: equal-width cells in one hairline ink frame, the cell whose key is
+ * [selected] filled with ink. A cell inverts while pressed. [options] are key to label pairs.
+ */
+@Composable
+fun <K> InkSegmented(
+    options: List<Pair<K, String>>,
+    selected: K,
+    onSelect: (K) -> Unit,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .height(Ink.Size.target)
+            .border(Ink.Size.hairline, Ink.ink)
+            .selectableGroup()
+            .semantics { this.contentDescription = contentDescription },
+    ) {
+        options.forEachIndexed { index, (key, label) ->
+            if (index > 0) {
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .width(Ink.Size.hairline)
+                        .background(Ink.ink)
+                )
+            }
+            val interaction = remember { MutableInteractionSource() }
+            val pressed by interaction.collectIsPressedAsState()
+            val inked = (key == selected) != pressed
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(if (inked) Ink.ink else Ink.paper)
+                    .selectable(
+                        selected = key == selected,
+                        interactionSource = interaction,
+                        indication = null,
+                        role = Role.Tab,
+                        onClick = { onSelect(key) },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, style = Ink.Type.label, color = if (inked) Ink.paper else Ink.ink, maxLines = 1)
+            }
+        }
     }
 }
 

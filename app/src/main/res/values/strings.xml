@@ -305,4 +305,7 @@
     <string name="background_pdf_next_page">Next page</string>
     <string name="background_image_iris">Iris</string>
     <string name="toolbar_open">Open toolbar</string>
+    <string name="page_mode_label">Pages</string>
+    <string name="page_mode_infinite">Infinite scroll</string>
+    <string name="page_mode_paged">Fixed pages</string>
 </resources>

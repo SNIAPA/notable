@@ -2,6 +2,7 @@ package com.ethran.notable.sync.serializers
 
 import com.ethran.notable.data.db.Image
 import com.ethran.notable.data.db.Notebook
+import com.ethran.notable.data.db.PageMode
 import com.ethran.notable.data.db.Page
 import com.ethran.notable.data.db.Stroke
 import com.ethran.notable.data.db.decodeStrokePoints
@@ -56,6 +57,7 @@ object NotebookSerializer {
             parentFolderId = notebook.parentFolderId,
             defaultBackground = notebook.defaultBackground,
             defaultBackgroundType = notebook.defaultBackgroundType,
+            pageMode = notebook.pageMode,
             linkedExternalUri = notebook.linkedExternalUri,
             createdAt = notebook.createdAt.toInstant().toString(),
             updatedAt = notebook.updatedAt.toInstant().toString(),
@@ -90,6 +92,7 @@ object NotebookSerializer {
                     parentFolderId = manifestDto.parentFolderId,
                     defaultBackground = manifestDto.defaultBackground,
                     defaultBackgroundType = manifestDto.defaultBackgroundType,
+                    pageMode = manifestDto.pageMode,
                     linkedExternalUri = manifestDto.linkedExternalUri,
                     createdAt = createdAt,
                     updatedAt = updatedAt
@@ -341,6 +344,8 @@ object NotebookSerializer {
         val parentFolderId: String?,
         val defaultBackground: String,
         val defaultBackgroundType: String,
+        // Absent in manifests written before page modes existed; those notebooks scroll infinitely.
+        val pageMode: String = PageMode.INFINITE,
         val linkedExternalUri: String?,
         val createdAt: String,
         val updatedAt: String,

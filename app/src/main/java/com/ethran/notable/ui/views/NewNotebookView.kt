@@ -40,6 +40,7 @@ import com.ethran.notable.navigation.NavigationDestination
 import com.ethran.notable.ui.dialogs.BackgroundSelectorContent
 import com.ethran.notable.ui.dialogs.ShowFolderSelectionDialog
 import com.ethran.notable.ui.theme.Flush
+import com.ethran.notable.ui.components.PageModeField
 import com.ethran.notable.ui.theme.Ink
 import com.ethran.notable.ui.theme.InkButton
 import com.ethran.notable.ui.theme.InkIconButton
@@ -98,6 +99,7 @@ fun NewNotebookView(
             onCreate = viewModel::create,
             onTitleChange = viewModel::setTitle,
             onChangeFolder = { showFolderPicker = true },
+            onPageModeChange = viewModel::setPageMode,
             backgroundSelector = {
                 BackgroundSelectorContent(
                     initialPageBackgroundType = state.backgroundType,
@@ -113,7 +115,7 @@ fun NewNotebookView(
 
 /**
  * The new notebook form: a top bar with back, the screen title and the create action, then the
- * title field, the target folder and the page background. [backgroundSelector] spans the full
+ * title field, the target folder, the page mode and the page background. [backgroundSelector] spans the full
  * width and pads itself to the page margin (and Ink.Space.s above), so its content shares the
  * form's keylines.
  */
@@ -125,6 +127,7 @@ private fun NewNotebookContent(
     onCreate: () -> Unit,
     onTitleChange: (String) -> Unit,
     onChangeFolder: () -> Unit,
+    onPageModeChange: (String) -> Unit,
     backgroundSelector: @Composable () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
@@ -174,6 +177,8 @@ private fun NewNotebookContent(
                 )
 
                 FolderField(folders = breadcrumbFolders, onChange = onChangeFolder)
+
+                PageModeField(pageMode = state.pageMode, onChange = onPageModeChange)
             }
 
             Spacer(Modifier.height(Ink.Space.section))
@@ -234,6 +239,7 @@ private fun NewNotebookPreview() {
         onCreate = {},
         onTitleChange = {},
         onChangeFolder = {},
+        onPageModeChange = {},
         backgroundSelector = {
             Box(
                 Modifier

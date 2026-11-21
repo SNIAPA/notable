@@ -284,6 +284,7 @@ fun drawBg(
     scale: Float = 1f,          // When exporting, we change scale of canvas. therefore canvas.width/height is scaled
     repeat: Boolean = false,    // for repeating image
     clipRect: Rect? = null,     // before the scaling
+    sheetEnd: Float? = null,    // page y where a paged notebook's sheet ends, marked with a rule
 ) {
 
     log.v("Loading the background")
@@ -324,6 +325,7 @@ fun drawBg(
         }
     }
     drawMargin(canvas, scroll, scale)
+    sheetEnd?.let { drawSheetEnd(canvas, it, scroll, scale) }
 
     if (GlobalAppSettings.current.visualizePdfPagination) {
         drawPaginationLine(canvas, scroll, scale)
@@ -331,6 +333,13 @@ fun drawBg(
     if (clipRect != null) {
         canvas.restore()
     }
+}
+
+/** A rule across the sheet at page y [sheetEnd], where a paged notebook's page stops. */
+fun drawSheetEnd(canvas: Canvas, sheetEnd: Float, scroll: Offset, scale: Float) {
+    val y = sheetEnd - scroll.y
+    if (y < 0 || y > canvas.height / scale) return
+    canvas.drawLine(-scroll.x, y, min(SCREEN_HEIGHT, SCREEN_WIDTH) - scroll.x, y, marginPaint)
 }
 
 // TODO: make sure it respects horizontal scroll

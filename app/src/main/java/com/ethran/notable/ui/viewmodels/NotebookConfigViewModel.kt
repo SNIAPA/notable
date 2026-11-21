@@ -76,6 +76,10 @@ class NotebookConfigViewModel @AssistedInject constructor(
         viewModelScope.launch { bookRepository.setDefaultBackground(bookId, type, background) }
     }
 
+    fun setPageMode(pageMode: String) {
+        viewModelScope.launch { bookRepository.setPageMode(bookId, pageMode) }
+    }
+
     /** Links the notebook to a file in the default folder for linked files, or unlinks it. */
     fun setLinked(linked: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {

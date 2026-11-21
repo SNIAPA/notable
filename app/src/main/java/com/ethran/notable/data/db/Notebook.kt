@@ -40,11 +40,24 @@ data class Notebook(
     @ColumnInfo(defaultValue = "native")
     val defaultBackgroundType: String = "native",
 
+    /** How the notebook's pages extend: [PageMode.INFINITE] or [PageMode.PAGED]. */
+    @ColumnInfo(defaultValue = PageMode.INFINITE)
+    val pageMode: String = PageMode.INFINITE,
+
     // File that its linked to:
     val linkedExternalUri: String? = null,
     val createdAt: Date = Date(),
     val updatedAt: Date = Date()
 )
+
+/** Values of [Notebook.pageMode]. */
+object PageMode {
+    /** A page scrolls down without end. */
+    const val INFINITE = "infinite"
+
+    /** A page is one fixed sheet, the screen's size in portrait. */
+    const val PAGED = "paged"
+}
 
 // DAO
 @Dao
@@ -79,6 +92,9 @@ interface NotebookDao {
     // A null background keeps the current one.
     @Query("UPDATE notebook SET defaultBackgroundType=:type, defaultBackground=COALESCE(:background, defaultBackground), updatedAt=:updatedAt WHERE id=:notebookId")
     suspend fun setDefaultBackground(notebookId: String, type: String, background: String?, updatedAt: Date)
+
+    @Query("UPDATE notebook SET pageMode=:pageMode, updatedAt=:updatedAt WHERE id=:notebookId")
+    suspend fun setPageMode(notebookId: String, pageMode: String, updatedAt: Date)
 
     @Query("UPDATE notebook SET linkedExternalUri=:uri, updatedAt=:updatedAt WHERE id=:notebookId")
     suspend fun setLinkedExternalUri(notebookId: String, uri: String?, updatedAt: Date)
@@ -196,6 +212,10 @@ class BookRepository @Inject constructor(
     /** A null [background] keeps the current one. */
     suspend fun setDefaultBackground(id: String, type: String, background: String?) {
         notebookDao.setDefaultBackground(id, type, background, Date())
+    }
+
+    suspend fun setPageMode(id: String, pageMode: String) {
+        notebookDao.setPageMode(id, pageMode, Date())
     }
 
     suspend fun setLinkedExternalUri(id: String, uri: String?) {
