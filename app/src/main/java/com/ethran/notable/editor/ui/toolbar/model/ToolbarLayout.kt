@@ -31,7 +31,7 @@ data class ToolbarLayout(
      * - enforces the single invariant: [ToolbarElementId.MENU] must be present somewhere;
      *   if missing, it is appended to [pinned].
      *
-     * Everything else — including hiding elements by omission — is the user's business.
+     * Everything else - including hiding elements by omission - is the user's business.
      */
     fun validated(pens: List<ToolbarPen>): ToolbarLayout {
         val seen = mutableSetOf<String>()

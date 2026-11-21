@@ -10,8 +10,10 @@ fun EmptyBookWarningHandler(
     val title = emptyBook.title
     val createdAt = emptyBook.createdAt
     ShowSimpleConfirmationDialog(
-        title = "There is a book without pages!!!",
-        message = "We suggest deleting book \"$title\", it was created at $createdAt. Do you want to do it?",
+        title = "Delete empty notebook \"$title\"",
+        message = "This notebook has no pages. It was created $createdAt.",
+        confirmButtonText = "Delete notebook",
+        cancelButtonText = "Keep notebook",
         onConfirm = {
             onDelete(emptyBook.id)
         },

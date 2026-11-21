@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.PageDataManager
 import com.ethran.notable.data.db.Folder
+import com.ethran.notable.data.db.KvProxy
 import com.ethran.notable.data.db.Notebook
 import com.ethran.notable.data.db.Page
 import com.ethran.notable.io.ImportEngine
@@ -63,6 +64,7 @@ class LibraryViewModel @Inject constructor(
     val pageDataManager: PageDataManager,
     private val snackDispatcher: SnackDispatcher,
     private val syncStatusStore: NotebookSyncStatusStore,
+    private val kvProxy: KvProxy,
     @param:ApplicationContext private val context: Context // Kept strictly for ImportEngine
 ) : ViewModel() {
 
@@ -71,6 +73,9 @@ class LibraryViewModel @Inject constructor(
     private val pageRepository = appRepository.pageRepository
 
     private val _folderId = MutableStateFlow<String?>(null)
+
+    /** Whether sync is turned on; without it no notebook shows a sync badge. */
+    private val _syncEnabled = MutableStateFlow(false)
     private val _isImporting = MutableStateFlow(false)
     private val _isLatestVersion = MutableStateFlow(true)
     private val _breadcrumbFolders = MutableStateFlow<List<Folder>>(emptyList())
@@ -85,9 +90,9 @@ class LibraryViewModel @Inject constructor(
 
     // 2. Group the database flows (plus per-notebook sync badges) semantically
     private val _dbDataFlow = combine(
-        _foldersFlow, _booksFlow, _singlePagesFlow, syncStatusStore.badges
-    ) { folders, books, pages, badges ->
-        LibraryDatabaseState(folders, books, pages, badges)
+        _foldersFlow, _booksFlow, _singlePagesFlow, syncStatusStore.badges, _syncEnabled
+    ) { folders, books, pages, badges, syncEnabled ->
+        LibraryDatabaseState(folders, books, pages, if (syncEnabled) badges else emptyMap())
     }
 
     // 3. Expose the final UI State
@@ -125,6 +130,9 @@ class LibraryViewModel @Inject constructor(
     fun loadFolder(folderId: String?) {
         pageDataManager.cancelLoadingPages()
         _folderId.value = folderId
+        viewModelScope.launch(Dispatchers.IO) {
+            _syncEnabled.value = kvProxy.getSyncSettings().syncEnabled
+        }
 
         // Resolve breadcrumbs in background thread
         viewModelScope.launch(Dispatchers.IO) {

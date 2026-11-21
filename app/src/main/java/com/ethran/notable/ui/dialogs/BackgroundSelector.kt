@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
@@ -70,7 +69,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.createBitmap
@@ -86,11 +84,36 @@ import com.ethran.notable.editor.drawing.drawLinedBg
 import com.ethran.notable.editor.drawing.drawSquaredBg
 import com.ethran.notable.editor.utils.autoEInkAnimationOnScroll
 import com.ethran.notable.io.getPdfPageCount
-import com.ethran.notable.ui.components.EInkButton
 import com.ethran.notable.ui.components.OnOffSwitch
 import com.ethran.notable.ui.components.ScaledDialog
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Loader
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import com.ethran.notable.ui.theme.Ink
+import compose.icons.feathericons.Upload
+import compose.icons.feathericons.RefreshCw
+import compose.icons.feathericons.Plus
+import compose.icons.feathericons.Minus
+import compose.icons.feathericons.Image
+import compose.icons.feathericons.FileText
+import com.ethran.notable.ui.theme.InkIconButton
+import com.ethran.notable.ui.theme.InkButton
+import com.ethran.notable.ui.theme.Flush
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.layout.BoxScope
 import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -120,10 +143,10 @@ fun BackgroundSelector(
             pageNumberInBook = pageNumberInBook,
             onChange = onChange,
             modifier = Modifier
-                .background(Color.White)
+                .background(Ink.paper)
                 .fillMaxWidth()
                 .height(550.dp)
-                .border(2.dp, Color.Black, RectangleShape)
+                .border(Ink.Size.hairline, Ink.ink)
         )
     }
 }
@@ -233,38 +256,14 @@ fun BackgroundSelectorContent(
     }
 
     Column(modifier = modifier) {
-        Box(
+        BackgroundKindSegments(
+            selected = selectedBackgroundMode,
+            onSelect = { selectedBackgroundMode = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
-            ) {
-                // Background Mode Buttons
-                listOf("Native", "Image", "Cover", "PDF").forEach { modeName ->
-                    EInkButton(
-                        onClick = {
-                            selectedBackgroundMode = modeName
-                        },
-                        modifier = Modifier.padding(horizontal = 5.dp),
-                        inverted = selectedBackgroundMode == modeName
-                    ) {
-                        Text(modeName)
-                    }
-                }
-            }
-        }
-        Box(
-            Modifier
-                .height(0.5.dp)
-                .fillMaxWidth()
-                .background(Color.Black)
+                .padding(horizontal = Ink.Space.margin, vertical = Ink.Space.s),
         )
-        Column(Modifier.padding(20.dp, 10.dp)) {
+        Column(Modifier.padding(horizontal = Ink.Space.margin, vertical = Ink.Space.l)) {
             when (selectedBackgroundMode) {
                 "Image" -> {
                     val currentBackgroundType =
@@ -283,11 +282,14 @@ fun BackgroundSelectorContent(
                         }
                     )
                     if (pageBackgroundType == BackgroundType.ImageRepeating || pageBackgroundType == BackgroundType.Image) {
-                        Spacer(Modifier.height(10.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.repeat_background))
-                            Spacer(Modifier.width(10.dp))
+                        Row(
+                            modifier = Modifier
+                                .padding(top = Ink.Space.xl)
+                                .heightIn(min = Ink.Size.target),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Ink.Space.l),
+                        ) {
+                            Text(stringResource(R.string.repeat_background), style = Ink.Type.body)
                             OnOffSwitch(
                                 checked = pageBackgroundType == BackgroundType.ImageRepeating,
                                 onCheckedChange = { isChecked ->
@@ -421,76 +423,172 @@ fun ShowNativeOption(
         }
     }
 
-    Text(
-        stringResource(R.string.choose_native_template),
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(8.dp)
-    )
-
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(120.dp),
+    FlowRow(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 400.dp)
-            .padding(8.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(Ink.Space.gap),
+        verticalArrangement = Arrangement.spacedBy(Ink.Space.xl),
     ) {
-        items(nativeOptions) { (value, label) ->
-            val bitmap = bitmaps[value]
-
-            Box(
-                modifier = Modifier
-                    .padding(6.dp)
-                    .border(
-                        width = if (value == currentBackground) 3.dp else 1.dp,
-                        color = if (value == currentBackground) Color.Black else Color.LightGray,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onBackgroundChange(value, currentBackgroundType) },
-                contentAlignment = Alignment.Center
+        nativeOptions.forEach { (value, label) ->
+            TemplateTile(
+                label = label,
+                selected = value == currentBackground,
+                onClick = { onBackgroundChange(value, currentBackgroundType) },
             ) {
+                val bitmap = bitmaps[value]
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "Preview for $label",
+                        contentDescription = null,
                         contentScale = ContentScale.None,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(0.75f) // maintain image proportion
-                            .background(Color.White)
+                        modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(0.75f)
-                            .background(Color.LightGray),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = FeatherIcons.Loader,
-                            contentDescription = "Preview of background not loaded.",
-                            tint = Color.Gray,
-                        )
-                    }
+                    Icon(
+                        imageVector = FeatherIcons.Loader,
+                        contentDescription = stringResource(R.string.background_preview_loading),
+                        tint = Ink.ink2,
+                        modifier = Modifier.size(Ink.Size.icon),
+                    )
                 }
+            }
+        }
+    }
+}
 
+/** Background kinds offered by [BackgroundSelectorContent]: the mode key and its display name. */
+@Composable
+private fun backgroundKinds(): List<Pair<String, String>> = listOf(
+    "Native" to stringResource(R.string.background_kind_native),
+    "Image" to stringResource(R.string.background_kind_image),
+    "Cover" to stringResource(R.string.background_kind_cover),
+    "PDF" to stringResource(R.string.background_kind_pdf),
+)
+
+/**
+ * The background kind as a segmented control: equal-width cells in one hairline ink frame, the
+ * [selected] mode key filled with ink. A cell inverts while pressed.
+ */
+@Composable
+private fun BackgroundKindSegments(
+    selected: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val kinds = backgroundKinds()
+    val groupLabel = stringResource(R.string.background_kind_label)
+    Row(
+        modifier = modifier
+            .height(Ink.Size.target)
+            .border(Ink.Size.hairline, Ink.ink)
+            .selectableGroup()
+            .semantics { contentDescription = groupLabel },
+    ) {
+        kinds.forEachIndexed { index, (key, name) ->
+            if (index > 0) {
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .width(Ink.Size.hairline)
+                        .background(Ink.ink)
+                )
+            }
+            val interaction = remember { MutableInteractionSource() }
+            val pressed by interaction.collectIsPressedAsState()
+            val inked = (key == selected) != pressed
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(if (inked) Ink.ink else Ink.paper)
+                    .selectable(
+                        selected = key == selected,
+                        interactionSource = interaction,
+                        indication = null,
+                        role = Role.Tab,
+                        onClick = { onSelect(key) },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(
-                    text = label,
-                    textAlign = TextAlign.Center,
-                    fontSize = 12.sp,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(Color.White.copy(alpha = 0.7f))
-                        .padding(4.dp)
+                    name,
+                    style = Ink.Type.label,
+                    color = if (inked) Ink.paper else Ink.ink,
+                    maxLines = 1,
                 )
             }
         }
     }
 }
 
+/**
+ * A background choice: a 3:4 [preview] in a hairline rule frame with the name below. When
+ * [selected] the frame is 2dp ink and the name is set in ink at weight 500; the ink frame also
+ * shows while the tile is pressed.
+ */
+@Composable
+private fun TemplateTile(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    preview: @Composable BoxScope.() -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val framed = selected || pressed
+    Column(
+        modifier = Modifier
+            .width(Ink.Size.card)
+            .selectable(
+                selected = selected,
+                interactionSource = interaction,
+                indication = null,
+                role = Role.RadioButton,
+                onClick = onClick,
+            ),
+        verticalArrangement = Arrangement.spacedBy(Ink.Space.s),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.75f)
+                .background(Ink.paper)
+                .border(
+                    width = if (framed) Ink.Size.hairline * 2 else Ink.Size.hairline,
+                    color = if (framed) Ink.ink else Ink.rule,
+                )
+                .padding(if (framed) Ink.Size.hairline * 2 else Ink.Size.hairline)
+                .clipToBounds(),
+            contentAlignment = Alignment.Center,
+            content = preview,
+        )
+        Row(
+            modifier = Modifier.heightIn(min = Ink.Size.iconInline),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Ink.Space.xs),
+        ) {
+            Text(
+                text = label,
+                style = if (selected) {
+                    Ink.Type.meta.copy(color = Ink.ink, fontWeight = FontWeight.Medium)
+                } else {
+                    Ink.Type.meta
+                },
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
 
+/** A glyph centered in a tile preview, for choices that have no picture of their own. */
+@Composable
+private fun TileGlyph(icon: ImageVector) {
+    Icon(icon, contentDescription = null, tint = Ink.ink, modifier = Modifier.size(Ink.Size.icon))
+}
+
+/** Image backgrounds: the bundled image, the images copied in before, and a tile to add one. */
 @Composable
 fun ShowImageOption(
     currentBackground: String,
@@ -498,107 +596,57 @@ fun ShowImageOption(
     onBackgroundChange: (String, BackgroundType) -> Unit,
     onRequestFilePicker: () -> Unit
 ) {
-    val imageType = when (currentBackgroundType) {
-        BackgroundType.CoverImage -> "Cover "
-        BackgroundType.ImageRepeating -> "Repeating "
-        else -> ""
-    }
-    Text("Choose ${imageType}Image", fontWeight = FontWeight.Bold)
+    val folder = File(ensureBackgroundsFolder(), currentBackgroundType.folderName)
+    val stored = folder.listFiles()?.filter { it.isFile }?.map { it.absolutePath to it.nameWithoutExtension }
+        ?: emptyList()
 
-    val baseOptions = listOf(
-        Triple("iris", "Iris", painterResource(id = R.drawable.iris)),
-    )
-
-    val folderName = currentBackgroundType.folderName
-    val folder = File(ensureBackgroundsFolder(), folderName)
-
-    val uriOptions = folder.listFiles()?.filter { it.isFile }?.map { file ->
-        Triple(file.absolutePath, file.nameWithoutExtension, null as Painter?)
-    } ?: emptyList()
-
-    val chooseFileOption = listOf(Triple("file", "Choose From File...", null))
-
-    val options = baseOptions + uriOptions + chooseFileOption
-
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(100.dp),
+    FlowRow(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 400.dp)
-            .padding(8.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(Ink.Space.gap),
+        verticalArrangement = Arrangement.spacedBy(Ink.Space.xl),
     ) {
-        items(options) { (value, label, painter) ->
-            Box(
-                modifier = Modifier
-                    .padding(6.dp)
-                    .border(
-                        width = if (value == currentBackground) 3.dp else 1.dp,
-                        color = if (value == currentBackground) Color.Black else Color.LightGray,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable {
-                        if (value == "file") {
-                            onRequestFilePicker()
-                        } else {
-                            onBackgroundChange(value, currentBackgroundType)
-                        }
-                    }) {
-                if (painter != null) {
+        TemplateTile(
+            label = stringResource(R.string.background_image_iris),
+            selected = currentBackground == "iris",
+            onClick = { onBackgroundChange("iris", currentBackgroundType) },
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.iris),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        stored.forEach { (path, name) ->
+            TemplateTile(
+                label = name,
+                selected = currentBackground == path,
+                onClick = { onBackgroundChange(path, currentBackgroundType) },
+            ) {
+                val bitmap = remember(path) { BitmapFactory.decodeFile(path)?.asImageBitmap() }
+                if (bitmap != null) {
                     Image(
-                        painter = painter,
-                        contentDescription = label,
+                        bitmap = bitmap,
+                        contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
+                        modifier = Modifier.fillMaxSize(),
                     )
-                } else if (value != "file") {
-                    val bitmap = remember(value) {
-                        BitmapFactory.decodeFile(value)?.asImageBitmap()
-                    }
-
-                    if (bitmap != null) {
-                        Image(
-                            bitmap = bitmap,
-                            contentDescription = label,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f)
-                        )
-                    } else {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f)
-                                .background(Color.Gray),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                label, color = Color.White, fontWeight = FontWeight.Light
-                            )
-                        }
-                    }
                 } else {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .background(Color.Gray),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            label, color = Color.White, fontWeight = FontWeight.Light
-                        )
-                    }
+                    TileGlyph(FeatherIcons.Image)
                 }
             }
         }
+        TemplateTile(
+            label = stringResource(R.string.background_add_image),
+            selected = false,
+            onClick = onRequestFilePicker,
+        ) { TileGlyph(FeatherIcons.Upload) }
     }
 }
 
-
+/** PDF backgrounds: the PDFs copied in before, and a tile to import one. */
 @Composable
 fun ShowPdfOption(
     currentBackground: String,
@@ -606,66 +654,36 @@ fun ShowPdfOption(
     onBackgroundChange: (BackgroundType, String) -> Unit,
     onRequestFilePicker: () -> Unit,
 ) {
-    Text(stringResource(R.string.choose_pdf_background), fontWeight = FontWeight.Bold)
+    val folder = File(ensureBackgroundsFolder(), currentBackgroundType.folderName)
+    val stored = folder.listFiles()?.filter { it.isFile }?.map { it.absolutePath to it.nameWithoutExtension }
+        ?: emptyList()
 
-    val folderName = currentBackgroundType.folderName
-    val folder = File(ensureBackgroundsFolder(), folderName)
-
-    val uriOptions = folder.listFiles()?.filter { it.isFile }?.map { file ->
-        Pair(file.absolutePath, file.nameWithoutExtension)
-    } ?: emptyList()
-    val pdfOptions = listOf(
-        "file" to "Import PDF"
-    ) + uriOptions
-
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(100.dp),
+    FlowRow(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 300.dp)
-            .padding(8.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(Ink.Space.gap),
+        verticalArrangement = Arrangement.spacedBy(Ink.Space.xl),
     ) {
-        items(pdfOptions) { (value, label) ->
-            Box(
-                modifier = Modifier
-                    .padding(6.dp)
-                    .border(
-                        width = if (value == currentBackground) 3.dp else 1.dp,
-                        color = if (value == currentBackground) Color.Black else Color.LightGray,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable {
-                        if (value == "file") {
-                            onRequestFilePicker()
-                        } else {
-                            onBackgroundChange(currentBackgroundType, value)
-                        }
-                    }, contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .background(Color.Gray)
-                        .padding(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PictureAsPdf,
-                        contentDescription = "PDF",
-                        tint = Color.White,
-                        modifier = Modifier.height(36.dp)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(label, color = Color.White, fontSize = 12.sp)
-                }
-            }
+        stored.forEach { (path, name) ->
+            TemplateTile(
+                label = name,
+                selected = currentBackground == path,
+                onClick = { onBackgroundChange(currentBackgroundType, path) },
+            ) { TileGlyph(FeatherIcons.FileText) }
         }
+        TemplateTile(
+            label = stringResource(R.string.background_import_pdf),
+            selected = false,
+            onClick = onRequestFilePicker,
+        ) { TileGlyph(FeatherIcons.Upload) }
     }
 }
 
+/**
+ * The PDF page used as the background: a stepper with the page number, and, when offered, a
+ * toggle that follows the notebook's page numbers through the PDF. Muted until a PDF is chosen.
+ */
 @Composable
 fun PageNumberSelector(
     currentBackground: String,
@@ -679,133 +697,79 @@ fun PageNumberSelector(
     val pdfSelectorEnabled =
         currentBackground.endsWith(".pdf") && maxPages != null && currentPage != null
 
-    Box(
+    var pageText by remember { mutableStateOf((currentPage ?: 1).toString()) }
+    val pageNumber = pageText.toIntOrNull() ?: 1
+
+    fun goTo(page: Int) {
+        pageText = page.toString()
+        onBackgroundChange(BackgroundType.Pdf(page - 1), currentBackground)
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer(alpha = if (pdfSelectorEnabled) 1f else 0.5f)
+            .padding(top = Ink.Space.xl)
+            .graphicsLayer(alpha = if (pdfSelectorEnabled) 1f else 0.5f),
+        verticalArrangement = Arrangement.spacedBy(Ink.Space.s),
     ) {
-        Column {
-            Spacer(Modifier.height(10.dp))
-            Text(stringResource(R.string.select_pdf_page), fontWeight = FontWeight.SemiBold)
-
-            var pageText by remember {
-                mutableStateOf(
-                    ((currentPage ?: (0 + 1))).toString()
-                )
-            }
-            val pageNumber = pageText.toIntOrNull() ?: 1
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .autoEInkAnimationOnScroll()
-                    .padding(horizontal = 100.dp)
-            ) {
-                IconButton(
-                    onClick = {
-                        if (pageNumber > 1) {
-                            val newPage = (pageNumber - 1).coerceAtMost(maxPages ?: 1)
-                            pageText = newPage.toString()
-                            onBackgroundChange(
-                                BackgroundType.Pdf(newPage - 1), currentBackground,
-
-                                )
-                        }
-                    }) {
-                    Icon(Icons.Default.Remove, contentDescription = "Previous Page")
-                }
-
-                OutlinedTextField(
-                    value = pageText,
-                    onValueChange = {
-                        val input = it.toIntOrNull()
-                        if (input != null && input in 1..(maxPages ?: 1)) {
-                            pageText = input.toString()
-                            onBackgroundChange(
-                                BackgroundType.Pdf(input - 1),
-                                currentBackground,
-
-                                )
-                        } else {
-                            pageText = it
-                        }
-                    },
-                    label = { Text(stringResource(R.string.page_number)) },
-                    keyboardOptions = KeyboardOptions.Default.copy(
-                        keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-
-                IconButton(
-                    onClick = {
-                        if (pageNumber < (maxPages ?: 1)) {
-                            val newPage = (pageNumber + 1).coerceAtLeast(1)
-                            pageText = newPage.toString()
-                            onBackgroundChange(
-                                BackgroundType.Pdf(newPage - 1),
-                                currentBackground,
-
-                                )
-                        }
-                    }) {
-                    Icon(Icons.Default.Add, contentDescription = "Next Page")
-                }
-                if (showAutoPdfOption) {
-                    Spacer(Modifier.width(10.dp))
-
-                    var isSelected = currentBackgroundType == BackgroundType.AutoPdf
-
-                    Button(
-                        onClick = {
-                            if (!isSelected) {
-                                onBackgroundChange(
-                                    BackgroundType.AutoPdf,
-                                    currentBackground,
-                                )
-                                isSelected = true
-                            } else {
-                                onBackgroundChange(
-                                    BackgroundType.Pdf(pageNumber),
-                                    currentBackground,
-                                )
-                                isSelected = false
-                            }
-                        }, modifier = Modifier.padding(4.dp), colors = ButtonDefaults.buttonColors(
-                            backgroundColor = if (isSelected) Color.Gray else Color.White,
-                            contentColor = Color.Black
-                        )
-                    ) {
-                        val name =
-                            if (isNotebookBgSelector) stringResource(R.string.observe_pdf) else stringResource(
-                                R.string.current_page
-                            )
-                        Icon(
-                            imageVector = Icons.Default.Autorenew,
-                            contentDescription = name,
-                            modifier = Modifier.size(ButtonDefaults.IconSize)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(name)
-                        log.d("PageNumberSelector: $isSelected, $currentBackgroundType")
-                    }
-                }
-            }
-
-            Text(
-                pluralStringResource(
-                    R.plurals.pdf_has_pages,
-                    maxPages ?: 0,
-                    maxPages ?: 0
-                ),
-                fontSize = 12.sp,
-                color = Color.Gray,
-                modifier = Modifier
-                    .padding(top = 4.dp)
-                    .align(Alignment.CenterHorizontally)
+        Text(stringResource(R.string.select_pdf_page), style = Ink.Type.meta)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            InkIconButton(
+                icon = FeatherIcons.Minus,
+                contentDescription = stringResource(R.string.background_pdf_previous_page),
+                onClick = { if (pageNumber > 1) goTo((pageNumber - 1).coerceAtMost(maxPages ?: 1)) },
+                flush = Flush.Start,
             )
-
+            BasicTextField(
+                value = pageText,
+                onValueChange = {
+                    val input = it.toIntOrNull()
+                    if (input != null && input in 1..(maxPages ?: 1)) goTo(input) else pageText = it
+                },
+                singleLine = true,
+                textStyle = Ink.Type.title.copy(
+                    textAlign = TextAlign.Center,
+                    fontFeatureSettings = Ink.Type.TABULAR,
+                ),
+                cursorBrush = SolidColor(Ink.ink),
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
+                ),
+                modifier = Modifier
+                    .width(Ink.Size.target * 2)
+                    .border(Ink.Size.hairline, Ink.ink)
+                    .padding(vertical = Ink.Space.m),
+            )
+            InkIconButton(
+                icon = FeatherIcons.Plus,
+                contentDescription = stringResource(R.string.background_pdf_next_page),
+                onClick = { if (pageNumber < (maxPages ?: 1)) goTo((pageNumber + 1).coerceAtLeast(1)) },
+            )
+            Text(
+                pluralStringResource(R.plurals.pdf_has_pages, maxPages ?: 0, maxPages ?: 0),
+                style = Ink.Type.meta.copy(fontFeatureSettings = Ink.Type.TABULAR),
+                modifier = Modifier
+                    .padding(start = Ink.Space.s)
+                    .weight(1f),
+            )
+            if (showAutoPdfOption) {
+                val following = currentBackgroundType == BackgroundType.AutoPdf
+                val name = if (isNotebookBgSelector) stringResource(R.string.observe_pdf)
+                else stringResource(R.string.current_page)
+                InkButton(
+                    text = name,
+                    icon = FeatherIcons.RefreshCw,
+                    primary = following,
+                    onClick = {
+                        if (!following) {
+                            onBackgroundChange(BackgroundType.AutoPdf, currentBackground)
+                        } else {
+                            onBackgroundChange(BackgroundType.Pdf(pageNumber), currentBackground)
+                        }
+                        log.d("PageNumberSelector: following=${!following}, $currentBackgroundType")
+                    },
+                )
+            }
         }
     }
 }

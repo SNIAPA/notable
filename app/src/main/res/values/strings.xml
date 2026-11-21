@@ -272,4 +272,37 @@
     <string name="no_redo_to_perform">Nothing to redo</string>
     <string name="toolbar_eraser">Eraser</string>
 
+    <string name="new_notebook_back">Back</string>
+    <string name="new_notebook_create_notebook">Create notebook</string>
+    <string name="new_notebook_title_label">Title</string>
+    <string name="new_notebook_folder_label">Folder</string>
+    <string name="new_notebook_choose_folder_title">Choose folder</string>
+    <string name="new_notebook_page_background">Page background</string>
+    <string name="background_kind_native">Native</string>
+    <string name="background_kind_image">Image</string>
+    <string name="background_kind_cover">Cover</string>
+    <string name="background_kind_pdf">PDF</string>
+    <string name="background_kind_label">Background type</string>
+    <string name="background_preview_loading">Loading preview</string>
+    <!-- Editor toolbar -->
+    <string name="toolbar_scribble_to_erase">Scribble to erase</string>
+    <string name="toolbar_eraser_pen">Stroke eraser</string>
+    <string name="toolbar_eraser_select">Area eraser</string>
+    <!-- Library screen -->
+    <string name="library_new_notebook">New notebook</string>
+    <string name="library_import">Import</string>
+    <string name="library_update_available">Update available</string>
+    <string name="library_folders">Folders</string>
+    <string name="library_new_folder">New folder</string>
+    <string name="library_new_page">New page</string>
+    <string name="library_empty_title">No notebooks yet</string>
+    <string name="library_empty_folder_title">No notebooks in this folder</string>
+    <string name="library_empty_body">Create a notebook to start writing, or import a PDF or Xournal++ file.</string>
+    <string name="library_import_failed">Import failed: %1$s</string>
+    <string name="background_add_image">Add image</string>
+    <string name="background_import_pdf">Import PDF</string>
+    <string name="background_pdf_previous_page">Previous page</string>
+    <string name="background_pdf_next_page">Next page</string>
+    <string name="background_image_iris">Iris</string>
+    <string name="toolbar_open">Open toolbar</string>
 </resources>

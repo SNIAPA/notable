@@ -1,26 +1,22 @@
 package com.ethran.notable.ui.views
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.Surface
 import androidx.compose.material.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,27 +26,34 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ethran.notable.R
 import com.ethran.notable.data.db.Folder
 import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.navigation.NavigationDestination
-import com.ethran.notable.ui.components.BreadCrumb
-import com.ethran.notable.ui.components.EInkButton
 import com.ethran.notable.ui.dialogs.BackgroundSelectorContent
 import com.ethran.notable.ui.dialogs.ShowFolderSelectionDialog
+import com.ethran.notable.ui.theme.Flush
+import com.ethran.notable.ui.theme.Ink
+import com.ethran.notable.ui.theme.InkButton
+import com.ethran.notable.ui.theme.InkIconButton
+import com.ethran.notable.ui.theme.InkSectionHeader
+import com.ethran.notable.ui.theme.InkTextButton
+import com.ethran.notable.ui.theme.InkTextField
+import com.ethran.notable.ui.theme.InkTitle
+import com.ethran.notable.ui.theme.InkTopBar
 import com.ethran.notable.ui.theme.InkaTheme
 import com.ethran.notable.ui.viewmodels.NewNotebookState
 import com.ethran.notable.ui.viewmodels.NewNotebookViewModel
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.ArrowLeft
+import compose.icons.feathericons.Folder
 
 object NewNotebookDestination : NavigationDestination {
     override val route = "newNotebook"
@@ -77,7 +80,7 @@ fun NewNotebookView(
 
     if (showFolderPicker) {
         ShowFolderSelectionDialog(
-            title = stringResource(R.string.new_notebook_choose_folder),
+            title = stringResource(R.string.new_notebook_choose_folder_title),
             initialFolderId = state.folderId,
             folderContents = viewModel::folderContents,
             onCancel = { showFolderPicker = false },
@@ -87,8 +90,7 @@ fun NewNotebookView(
             })
     }
 
-    // The screen is white, as the library is, so its controls take the light colors too.
-    InkaTheme(darkTheme = false) {
+    InkaTheme {
         NewNotebookContent(
             state = state,
             breadcrumbFolders = breadcrumbFolders,
@@ -109,6 +111,12 @@ fun NewNotebookView(
     }
 }
 
+/**
+ * The new notebook form: a top bar with back, the screen title and the create action, then the
+ * title field, the target folder and the page background. [backgroundSelector] spans the full
+ * width and pads itself to the page margin (and Ink.Space.s above), so its content shares the
+ * form's keylines.
+ */
 @Composable
 private fun NewNotebookContent(
     state: NewNotebookState,
@@ -120,70 +128,95 @@ private fun NewNotebookContent(
     backgroundSelector: @Composable () -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
-    Surface(modifier = Modifier.fillMaxSize(), color = Color.White) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink.paper)
+    ) {
+        InkTopBar(
+            leading = {
+                InkIconButton(
+                    icon = FeatherIcons.ArrowLeft,
+                    contentDescription = stringResource(R.string.new_notebook_back),
+                    onClick = onBack,
+                    flush = Flush.Start,
+                    // The arrow's stroke starts 4dp into its box; this puts the stroke on the keyline.
+                    modifier = Modifier.offset(x = -Ink.Space.xs),
+                )
+                InkTitle(stringResource(R.string.new_notebook_screen_title))
+            },
+            actions = {
+                InkButton(
+                    text = stringResource(R.string.new_notebook_create_notebook),
+                    onClick = onCreate,
+                    primary = true,
+                )
+            },
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = Ink.Space.xl)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.Black
-                    )
-                }
-                Text(
-                    text = stringResource(R.string.new_notebook_screen_title),
-                    style = MaterialTheme.typography.h5,
-                    modifier = Modifier.weight(1f)
-                )
-                EInkButton(onClick = onCreate, inverted = true) {
-                    Text(stringResource(R.string.new_notebook_create), fontWeight = FontWeight.Bold)
-                }
-            }
-
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.padding(horizontal = Ink.Space.margin),
+                verticalArrangement = Arrangement.spacedBy(Ink.Space.xl),
             ) {
-                OutlinedTextField(
+                InkTextField(
                     value = state.title,
                     onValueChange = onTitleChange,
-                    label = { Text(stringResource(R.string.details_notebook_title)) },
-                    singleLine = true,
+                    label = stringResource(R.string.new_notebook_title_label),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.details_notebook_in_folder))
-                    BreadCrumb(
-                        folders = breadcrumbFolders,
-                        fontSize = 16,
-                        modifier = Modifier.weight(1f)
-                    ) { }
-                    EInkButton(onClick = onChangeFolder) {
-                        Text(stringResource(R.string.new_notebook_change_folder))
-                    }
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = stringResource(R.string.details_notebook_default_background_template),
-                        fontWeight = FontWeight.Bold,
-                    )
-                    backgroundSelector()
-                }
+                FolderField(folders = breadcrumbFolders, onChange = onChangeFolder)
             }
+
+            Spacer(Modifier.height(Ink.Space.section))
+            InkSectionHeader(
+                text = stringResource(R.string.new_notebook_page_background),
+                modifier = Modifier.padding(horizontal = Ink.Space.margin),
+            )
+            backgroundSelector()
         }
+    }
+}
+
+/**
+ * The notebook's folder as a labelled field: the path from the library root as plain text, and a
+ * Change action on the trailing keyline.
+ */
+@Composable
+private fun FolderField(folders: List<Folder>, onChange: () -> Unit) {
+    val path = (listOf(stringResource(R.string.home_view_name)) + folders.map { it.title })
+        .joinToString(" / ")
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Ink.Space.l),
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(Ink.Space.xs),
+        ) {
+            Text(stringResource(R.string.new_notebook_folder_label), style = Ink.Type.meta)
+            Text(
+                text = path,
+                style = Ink.Type.body,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        InkTextButton(
+            text = stringResource(R.string.new_notebook_change_folder),
+            onClick = onChange,
+            icon = FeatherIcons.Folder,
+            flush = Flush.End,
+        )
     }
 }
 
@@ -204,9 +237,10 @@ private fun NewNotebookPreview() {
         backgroundSelector = {
             Box(
                 Modifier
+                    .padding(horizontal = Ink.Space.margin)
                     .fillMaxWidth()
-                    .height(400.dp)
-                    .border(1.dp, Color.Black, RectangleShape)
+                    .height(Ink.Size.card)
+                    .border(Ink.Size.hairline, Ink.rule)
             )
         },
     )

@@ -6,21 +6,20 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -29,19 +28,21 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.PopupProperties
-import com.ethran.notable.data.datastore.AppSettings
-import com.ethran.notable.data.datastore.BUTTON_SIZE
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.editor.utils.PenSetting
-import com.ethran.notable.ui.components.ScaledPopup
+import com.ethran.notable.ui.theme.Ink
+import com.ethran.notable.ui.theme.InkRule
 import kotlin.math.roundToInt
 
-
+/**
+ * The pen popover: a row of color swatches and a size picker, separated by a rule. The row
+ * nearest the toolbar is the colors when the toolbar is at the top and the sizes when it is
+ * at the bottom.
+ */
 @Composable
 fun StrokeMenu(
     value: PenSetting,
@@ -50,87 +51,33 @@ fun StrokeMenu(
     sizeOptions: List<Pair<String, Float>>,
     colorOptions: List<Color>,
 ) {
-    val density = LocalDensity.current
+    // The slider is as wide as five swatches, or the swatch row if that is wider.
+    val pickerWidth = Ink.Size.target * colorOptions.size.coerceAtLeast(5)
 
-    val columnModifier =
-        if (GlobalAppSettings.current.continuousStrokeSlider) Modifier
-            .background(Color.White)
-            .border(1.dp, Color.Black)
-        else Modifier
-    ScaledPopup(
-        offset = with(density) { IntOffset(0, 43.dp.roundToPx()) },
-        onDismissRequest = { onClose() },
-        properties = PopupProperties(focusable = true),
-        alignment = Alignment.TopCenter
-    ) {
-
-        Column(
-            modifier = columnModifier
-                .width(IntrinsicSize.Min) // match the widest child (ColorPicker Row)
-                .padding(horizontal = 10.dp, vertical = 8.dp)
-                .padding(bottom = (BUTTON_SIZE + 5).dp) // For toolbar is located at the button,
-        ) {
-
-            val widthOfPicker = (35 * colorOptions.size.coerceAtLeast(5))
-            val heightOfPicker = 40
-
-            val isBottom =
-                GlobalAppSettings.current.toolbarPosition == AppSettings.Position.Bottom
-
-            if (isBottom) {
-                // Show size first, then colors
-                StrokeSizePicker(
-                    value = value,
-                    onChange = onChange,
-                    sizeOptions = sizeOptions,
-                    widthOfPicker = widthOfPicker,
-                    heightOfPicker = heightOfPicker
-                )
-
-                Spacer(Modifier.height(6.dp))
-
-                ColorPicker(
-                    value = value,
-                    onChange = onChange,
-                    colorOptions = colorOptions,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-            } else {
-                // Original order: colors first, then size
-                ColorPicker(
-                    value = value,
-                    onChange = onChange,
-                    colorOptions = colorOptions,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-
-                Spacer(Modifier.height(6.dp))
-
-                StrokeSizePicker(
-                    value = value,
-                    onChange = onChange,
-                    sizeOptions = sizeOptions,
-                    widthOfPicker = widthOfPicker,
-                    heightOfPicker = heightOfPicker
-                )
-            }
+    ToolbarPopup(onDismiss = onClose) {
+        if (toolbarAtBottom()) {
+            StrokeSizePicker(value, onChange, sizeOptions, pickerWidth)
+            InkRule()
+            ColorPicker(value, onChange, colorOptions, Modifier.align(Alignment.CenterHorizontally))
+        } else {
+            ColorPicker(value, onChange, colorOptions, Modifier.align(Alignment.CenterHorizontally))
+            InkRule()
+            StrokeSizePicker(value, onChange, sizeOptions, pickerWidth)
         }
-
-
     }
 }
 
+/**
+ * The size picker: the continuous slider when that setting is on and the pen offers at least
+ * two sizes, otherwise a row of 48dp size buttons with the current size ink-filled.
+ */
 @Composable
 fun ColumnScope.StrokeSizePicker(
     value: PenSetting,
     onChange: (setting: PenSetting) -> Unit,
     sizeOptions: List<Pair<String, Float>>,
-    widthOfPicker: Int,
-    heightOfPicker: Int = 40
+    widthOfPicker: Dp,
 ) {
-
-    // The slider needs at least two values to define a range; a single-size pen
-    // falls back to the button picker regardless of the setting.
     if (!GlobalAppSettings.current.continuousStrokeSlider || sizeOptions.size < 2) {
         ThicknessPicker(
             value,
@@ -139,77 +86,63 @@ fun ColumnScope.StrokeSizePicker(
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
     } else {
-        val sizes = sizeOptions.map { it.second }
         DiscreteThicknessSlider(
             value = value.strokeSize,
             onValueChange = { newSize ->
-                onChange(
-                    PenSetting(
-                        strokeSize = newSize, color = value.color
-                    )
-                )
+                onChange(PenSetting(strokeSize = newSize, color = value.color))
             },
-            values = sizes,
+            values = sizeOptions.map { it.second },
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
-                .width(widthOfPicker.dp)   // shorter than full width
-                .height(heightOfPicker.dp)   // compact height
-                .padding(horizontal = 10.dp, vertical = 8.dp)
+                .width(widthOfPicker)
+                .height(Ink.Size.target)
+                .padding(horizontal = Ink.Space.l, vertical = Ink.Space.s)
         )
     }
 }
 
-
+/**
+ * One 48dp target per color: a swatch with a 1dp ink outline, so white and pale colors read
+ * on paper. The current color's target is ink-filled and its swatch outline turns paper.
+ */
 @Composable
 private fun ColorPicker(
     value: PenSetting,
     onChange: (setting: PenSetting) -> Unit,
     colorOptions: List<Color>,
     modifier: Modifier = Modifier,
-    embedded: Boolean = false
 ) {
-    val rowModifier = if (embedded) {
-        modifier.height(IntrinsicSize.Max)
-    } else {
-        modifier
-            .background(Color.White)
-            .border(1.dp, Color.Black)
-            .height(IntrinsicSize.Max)
-    }
-
-    Row(rowModifier) {
-        colorOptions.map { color ->
+    Row(modifier) {
+        colorOptions.forEach { color ->
+            val interaction = remember { MutableInteractionSource() }
+            val pressed by interaction.collectIsPressedAsState()
+            val inked = (color.toArgb() == value.color) != pressed
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(color)
-                    .border(
-                        3.dp, if (color == Color(value.color)) Color.Black else Color.Transparent
-                    )
-                    .clickable {
-                        onChange(
-                            PenSetting(
-                                strokeSize = value.strokeSize, color = android.graphics.Color.argb(
-                                    (color.alpha * 255).toInt(),
-                                    (color.red * 255).toInt(),
-                                    (color.green * 255).toInt(),
-                                    (color.blue * 255).toInt()
-                                )
-                            )
-                        )
-                    }
-                    .padding(8.dp))
+                    .size(Ink.Size.target)
+                    .background(if (inked) Ink.ink else Ink.paper)
+                    .clickable(
+                        interactionSource = interaction,
+                        indication = null,
+                        role = Role.Button,
+                        onClick = {
+                            onChange(PenSetting(strokeSize = value.strokeSize, color = color.toArgb()))
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .size(Ink.Size.icon)
+                        .background(color)
+                        .border(Ink.Size.hairline, if (inked) Ink.paper else Ink.ink)
+                )
+            }
         }
     }
-
-    if (!embedded) {
-        Spacer(Modifier.height(4.dp))
-    }
-
 }
 
-// Old Picker
-@Suppress("unused")
+/** A row of 48dp size buttons, labelled with each size's name. */
 @Composable
 private fun ThicknessPicker(
     value: PenSetting,
@@ -217,22 +150,12 @@ private fun ThicknessPicker(
     sizeOptions: List<Pair<String, Float>>,
     modifier: Modifier = Modifier
 ) {
-
-    Row(
-        modifier = modifier
-            .background(Color.White)
-            .border(1.dp, Color.Black),
-        horizontalArrangement = Arrangement.Center
-    ) {
-        sizeOptions.forEach {
+    Row(modifier) {
+        sizeOptions.forEach { (label, size) ->
             ToolbarButton(
-                text = it.first, isSelected = value.strokeSize == it.second, onSelect = {
-                    onChange(
-                        PenSetting(
-                            strokeSize = it.second, color = value.color
-                        )
-                    )
-                }, modifier = Modifier
+                text = label,
+                isSelected = value.strokeSize == size,
+                onSelect = { onChange(PenSetting(strokeSize = size, color = value.color)) },
             )
         }
     }
@@ -242,7 +165,7 @@ private fun ThicknessPicker(
  * Discrete slider:
  * - Track is a wedge: thin on the left, gradually thicker to the right.
  * - Tap or drag to change; snapping to nearest integer value between min and max.
- * - Single down arrow/rect thumb for clarity (high contrast).
+ * - A square ink thumb and a down arrow mark the current value.
  * - Takes a List<Float> of suggested values; indicators are shown above these.
  * - All integer values between min and max are selectable by dragging/tapping.
  */
@@ -318,36 +241,30 @@ private fun DiscreteThicknessSlider(
                 close()
             }
 
-            // Outline first (white halo), then fill, then crisp black outline
+            // Paper halo first, then the ink fill, then a crisp ink outline
             drawPath(
                 path = trackPath,
-                color = Color.White,
+                color = Ink.paper,
                 style = Stroke(
                     width = 6f,
                     cap = StrokeCap.Butt,
-                    join = StrokeJoin.Round
+                    join = StrokeJoin.Miter
                 )
             )
             drawPath(
                 path = trackPath,
-                color = Color.Black,
+                color = Ink.ink,
                 style = Fill
             )
             drawPath(
                 path = trackPath,
-                color = Color.Black,
+                color = Ink.ink,
                 style = Stroke(
                     width = 2f,
                     cap = StrokeCap.Butt,
-                    join = StrokeJoin.Round
+                    join = StrokeJoin.Miter
                 )
             )
-
-            // Rounded end hints
-            val leftR = minTrack / 4f
-            val rightR = maxTrack / 4f
-            drawCircle(Color.Black, radius = leftR, center = Offset(2f, centerY))
-            drawCircle(Color.Black, radius = rightR, center = Offset(w - 3f, centerY - rightR))
 
             // Ticks (indicators) along the top for the suggested values only
             val tickGap = 6f
@@ -359,11 +276,11 @@ private fun DiscreteThicknessSlider(
                 val startY = (topY - tickGap - tickHeight).coerceAtLeast(0f)
                 val endY = (topY - tickGap).coerceAtLeast(0f)
                 drawLine(
-                    color = Color.Black,
+                    color = Ink.ink,
                     start = Offset(x, startY),
                     end = Offset(x, endY),
                     strokeWidth = 3f,
-                    cap = StrokeCap.Round
+                    cap = StrokeCap.Butt
                 )
             }
 
@@ -371,27 +288,24 @@ private fun DiscreteThicknessSlider(
             val thumbX = thumbFraction * w
             val currentThickness = thicknessAtX(thumbX)
 
-            // Highly visible vertical rounded thumb (white border + black body)
+            // Vertical thumb: an ink bar on a paper halo
             val thumbW = 10f
             val thumbH = (currentThickness + 14f).coerceAtMost(h * 0.9f) / 2
-            val thumbRadius = 6f
             val thumbOuterPadding = 3f
 
-            drawRoundRect(
-                color = Color.White,
+            drawRect(
+                color = Ink.paper,
                 topLeft = Offset(
                     thumbX - thumbW / 2f - thumbOuterPadding, centerY - thumbH - thumbOuterPadding
                 ),
                 size = Size(
                     thumbW + thumbOuterPadding * 2f, thumbH + thumbOuterPadding * 2f
-                ),
-                cornerRadius = CornerRadius(thumbRadius, thumbRadius)
+                )
             )
-            drawRoundRect(
-                color = Color.Black,
+            drawRect(
+                color = Ink.ink,
                 topLeft = Offset(thumbX - thumbW / 2f, centerY - thumbH),
-                size = Size(thumbW, thumbH),
-                cornerRadius = CornerRadius(thumbRadius, thumbRadius)
+                size = Size(thumbW, thumbH)
             )
 
             // Down arrow pointing to current position for visibility
@@ -404,7 +318,7 @@ private fun DiscreteThicknessSlider(
                 lineTo(thumbX + arrowWidth / 2f, (tipY + arrowHeight).coerceAtMost(h))
                 close()
             }
-            drawPath(downArrow, color = Color.Black)
+            drawPath(downArrow, color = Ink.ink)
         }
     }
 }

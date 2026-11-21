@@ -5,12 +5,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * The export/import file format for a toolbar layout (design doc §4): the layout plus
+ * The export/import file format for a toolbar layout (design doc section 4): the layout plus
  * the pen presets it references, wrapped in a small self-identifying envelope so a
  * mispicked JSON file is rejected with a clear message instead of half-importing.
  *
  * Decoding tolerates unknown keys (a file exported from a newer app version still
- * imports — its unknown layout entries are then dropped by [ToolbarLayout.validated]).
+ * imports - its unknown layout entries are then dropped by [ToolbarLayout.validated]).
  */
 @Serializable
 data class ToolbarLayoutFile(
@@ -39,10 +39,10 @@ data class ToolbarLayoutFile(
          * caller can mention them in a snackbar rather than failing the import.
          *
          * Pens are sanitized symmetrically with the layout: duplicate ids are dropped
-         * (first wins — `"PEN:<id>"` resolution takes the first match anyway, and each
+         * (first wins - `"PEN:<id>"` resolution takes the first match anyway, and each
          * dropped duplicate counts toward [droppedCount]), option values a hand-edited
          * file carries outside the editor's candidate sets are removed (the edit dialog
-         * can only render candidates — an off-candidate option would be invisible and
+         * can only render candidates - an off-candidate option would be invisible and
          * unremovable), and option lists left empty fall back to null, i.e. the defaults.
          */
         fun decode(text: String): ImportResult {

@@ -6,12 +6,12 @@ package com.ethran.notable.editor.ui.toolbar.model
  * reordering the enum is safe.
  */
 enum class ToolbarElementId {
-    /** The toolbar's own open/close control — always rendered first, never part of a layout. */
+    /** The toolbar's own open/close control - always rendered first, never part of a layout. */
     TOGGLE,
 
     /**
      * Shared by every pen instance ([PenElement] built from a [ToolbarPen] preset).
-     * Pens are identified by preset id and appear in layouts as `"PEN:<id>"` entries —
+     * Pens are identified by preset id and appear in layouts as `"PEN:<id>"` entries -
      * a bare "PEN" name is invalid and dropped by the validator.
      */
     PEN,

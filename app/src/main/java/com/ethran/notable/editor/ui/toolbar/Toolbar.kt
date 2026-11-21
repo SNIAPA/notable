@@ -5,32 +5,37 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.ethran.notable.data.datastore.AppSettings
-import com.ethran.notable.data.datastore.BUTTON_SIZE
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.editor.ToolbarAction
 import com.ethran.notable.editor.ToolbarUiState
 import com.ethran.notable.editor.state.Mode
+import androidx.compose.ui.res.stringResource
+import com.ethran.notable.R
+import com.ethran.notable.editor.ui.toolbar.model.DividerElement
 import com.ethran.notable.editor.ui.toolbar.model.IconRef
+import com.ethran.notable.editor.ui.toolbar.model.ToolbarElement
 import com.ethran.notable.editor.ui.toolbar.model.ToolbarElementId
 import com.ethran.notable.editor.ui.toolbar.model.ToolbarElements
 import com.ethran.notable.editor.ui.toolbar.model.ToolbarLayout
 import com.ethran.notable.editor.ui.toolbar.model.ToolbarPen
 import com.ethran.notable.editor.utils.Pen
 import com.ethran.notable.ui.dialogs.BackgroundSelector
+import com.ethran.notable.ui.theme.Ink
+import com.ethran.notable.ui.theme.InkRule
 
 /**
  * Spec-driven toolbar: iterates a [ToolbarLayout] and renders each element through
@@ -64,7 +69,7 @@ fun ToolbarContent(
         return
     }
 
-    // Snapshot read: setting changes (toolbarPens, toolbarPosition, …) recompose the toolbar.
+    // Snapshot read: setting changes (toolbarPens, toolbarPosition, ...) recompose the toolbar.
     val settings = GlobalAppSettings.current
     // Persisted layouts must be sanitized: they may predate elements, duplicate ids,
     // or omit the mandatory MENU entry. DEFAULT is validated by construction (tested);
@@ -73,11 +78,26 @@ fun ToolbarContent(
         settings.toolbarLayout?.validated(settings.toolbarPens) ?: ToolbarLayout.DEFAULT
     }
 
+    /**
+     * The visible elements of a zone, without dividers at either end or next to another divider,
+     * so a hidden tool never leaves a divider around empty space.
+     */
+    fun visibleIn(names: List<String>): List<ToolbarElement> {
+        val visible = names.mapNotNull { name ->
+            ToolbarElements.resolve(name, settings.toolbarPens)?.takeIf { it.visibleWhen(uiState, settings) }
+        }
+        val kept = mutableListOf<ToolbarElement>()
+        for (element in visible) {
+            if (element is DividerElement && (kept.isEmpty() || kept.last() is DividerElement)) continue
+            kept.add(element)
+        }
+        while (kept.lastOrNull() is DividerElement) kept.removeAt(kept.lastIndex)
+        return kept
+    }
+
     @Composable
-    fun renderZone(names: List<String>) {
-        for (name in names) {
-            val element = ToolbarElements.resolve(name, settings.toolbarPens) ?: continue
-            if (!element.visibleWhen(uiState, settings)) continue
+    fun renderZone(elements: List<ToolbarElement>) {
+        for (element in elements) {
             ToolbarElementView(
                 element = element,
                 uiState = uiState,
@@ -89,19 +109,13 @@ fun ToolbarContent(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height((BUTTON_SIZE + 2).dp)
-            .padding(bottom = 1.dp)
-    ) {
-        if (settings.toolbarPosition == AppSettings.Position.Bottom) {
-            HorizontalHairline()
-        }
+    val atBottom = settings.toolbarPosition == AppSettings.Position.Bottom
+    Column(Modifier.fillMaxWidth().background(Ink.paper)) {
+        // The ink rule sits on the edge that faces the canvas.
+        if (atBottom) InkRule(color = Ink.ink)
         Row(
             Modifier
-                .background(Color.White)
-                .height(BUTTON_SIZE.dp)
+                .height(Ink.Size.target)
                 .fillMaxWidth()
         ) {
             // Structural: the toggle is always first, never part of the layout.
@@ -117,21 +131,30 @@ fun ToolbarContent(
             Row(
                 Modifier
                     .weight(1f)
+                    .fillMaxHeight()
                     .horizontalScroll(rememberScrollState())
             ) {
-                renderZone(layout.scrollable)
+                renderZone(visibleIn(layout.scrollable))
             }
 
-            // Right zone: pinned.
-            Row {
-                renderZone(layout.pinned)
+            // Right zone: pinned, set off from the scrolling zone by one divider.
+            val pinned = visibleIn(layout.pinned)
+            if (pinned.isNotEmpty()) {
+                ToolbarVerticalDivider()
+                Row(Modifier.fillMaxHeight()) {
+                    renderZone(pinned)
+                }
             }
         }
-
-        HorizontalHairline()
+        if (!atBottom) InkRule(color = Ink.ink)
     }
 }
 
+/**
+ * The closed toolbar: one 48dp paper square in the toolbar's corner showing the current tool
+ * glyph (and the pen color bar while drawing), with a 1dp ink frame on the two edges that
+ * face the canvas. Tapping it opens the toolbar.
+ */
 @Composable
 private fun CollapsedToolbarButton(
     uiState: ToolbarUiState,
@@ -140,6 +163,7 @@ private fun CollapsedToolbarButton(
     val icon = ToolbarElements.presentlyUsedToolIcon(
         uiState, GlobalAppSettings.current.toolbarPens
     )
+    val atBottom = toolbarAtBottom()
     ToolbarButton(
         onSelect = { onAction(ToolbarAction.ToggleToolbar) },
         iconId = (icon as? IconRef.Drawable)?.resId,
@@ -147,20 +171,15 @@ private fun CollapsedToolbarButton(
         penColor = if (uiState.mode != Mode.Erase)
             uiState.penSettings[uiState.penPresetId]?.color?.let { Color(it) }
         else null,
-        contentDescription = "open toolbar",
-        modifier = Modifier
-            .height((BUTTON_SIZE + 1).dp)
-            .padding(bottom = 1.dp)
-    )
-}
-
-@Composable
-private fun HorizontalHairline() {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(Color.Black)
+        contentDescription = stringResource(R.string.toolbar_open),
+        modifier = Modifier.drawWithContent {
+            drawContent()
+            val w = Ink.Size.hairline.toPx()
+            val y = if (atBottom) w / 2 else size.height - w / 2
+            drawLine(Ink.ink, Offset(0f, y), Offset(size.width, y), w)
+            val x = size.width - w / 2
+            drawLine(Ink.ink, Offset(x, 0f), Offset(x, size.height), w)
+        },
     )
 }
 

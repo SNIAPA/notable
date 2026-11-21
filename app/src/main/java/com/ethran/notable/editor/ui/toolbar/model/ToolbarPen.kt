@@ -9,7 +9,7 @@ import android.graphics.Color as AndroidColor
 /**
  * A user-created pen instance: a base [Pen] type plus its own color and size. The same
  * base type may appear multiple times (two ballpens in different colors), each as its own
- * toolbar button. The preset *is* the pen's setting — StrokeMenu edits write back to it,
+ * toolbar button. The preset *is* the pen's setting - StrokeMenu edits write back to it,
  * persisted in `AppSettings.toolbarPens`.
  *
  * Presets are referenced from [ToolbarLayout] lists as `"PEN:<id>"` entries; all other
@@ -25,10 +25,10 @@ data class ToolbarPen(
     val size: Float,
     /**
      * Which colors this pen's StrokeMenu offers, user-picked in the toolbar settings.
-     * Null (also for pre-existing persisted presets) → [DEFAULT_COLOR_OPTIONS].
+     * Null (also for pre-existing persisted presets) -> [DEFAULT_COLOR_OPTIONS].
      */
     val colorOptions: List<Int>? = null,
-    /** Which sizes this pen's StrokeMenu offers. Null → the base type's default set. */
+    /** Which sizes this pen's StrokeMenu offers. Null -> the base type's default set. */
     val sizeOptions: List<Float>? = null,
 ) {
     /** The preset's color/size as a fresh [PenSetting] (its fields are mutable). */
@@ -68,7 +68,7 @@ data class ToolbarPen(
 
         fun newId(): String = UUID.randomUUID().toString().take(8)
 
-        /** Base types offered when creating a preset — legacy color variants and the
+        /** Base types offered when creating a preset - legacy color variants and the
          * erase-indicator DASHED are not placeable. Pen.PENCIL is charcoal V1 ("Charcoal
          * (classic)"), kept for the historical default preset; new work should prefer
          * Pen.CHARCOAL (V2). */
@@ -81,7 +81,7 @@ data class ToolbarPen(
          * Reproduces the historical eight pen buttons. Seed ids are stable so
          * [ToolbarLayout.DEFAULT] can reference them by name. The old red/blue/green
          * pens were separate [Pen] values; as presets they are plain ballpens with a
-         * color — new strokes persist `pen = BALLPEN` and render identically.
+         * color - new strokes persist `pen = BALLPEN` and render identically.
          */
         val DEFAULT_PENS = listOf(
             ToolbarPen("ball", Pen.BALLPEN, AndroidColor.BLACK, 5f),
@@ -95,7 +95,7 @@ data class ToolbarPen(
         )
 
         /**
-         * Fallback pen settings keyed by preset id, derived from [DEFAULT_PENS] — the
+         * Fallback pen settings keyed by preset id, derived from [DEFAULT_PENS] - the
          * single source of truth. EditorViewModel.DEFAULT_PEN_SETTINGS aliases this;
          * persisted user presets always win.
          */
