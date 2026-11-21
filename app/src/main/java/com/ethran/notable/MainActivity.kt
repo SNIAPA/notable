@@ -135,6 +135,7 @@ class MainActivity : ComponentActivity() {
         maybeShowCrashLoopHint()
 
         Log.i(TAG, "Notable started")
+        com.ethran.notable.api.StrokeApiServer.start(this, appRepositoryLazy.get())
 
         SCREEN_WIDTH = applicationContext.resources.displayMetrics.widthPixels
         SCREEN_HEIGHT = applicationContext.resources.displayMetrics.heightPixels

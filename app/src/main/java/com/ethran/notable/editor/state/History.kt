@@ -183,6 +183,26 @@ class History @AssistedInject constructor(
         lastDrawnAt = now
     }
 
+    /**
+     * Applies [operations] to the page shown, redraws the area they touch and records them as one
+     * undo step. Returns false, changing nothing, while the page's strokes are still loading.
+     */
+    suspend fun applyOperations(operations: OperationBlock): Boolean {
+        if (!pageView.isPageDataLoaded) return false
+        if (operations.isEmpty()) return true
+        val inverse = mutableListOf<Operation>()
+        val zoneAffected = Rect()
+        for (operation in operations) {
+            val (cancelOperation, thisZoneAffected) = treatOperation(operation)
+            inverse.add(cancelOperation)
+            zoneAffected.union(thisZoneAffected)
+        }
+        addOperationsToHistory(pageView.currentPageId, inverse.reversed())
+        pageModel.drawAreaPageCoordinates(zoneAffected)
+        CanvasEventBus.refreshUi.emit(Unit)
+        return true
+    }
+
     /** Records [operations], made on [pageId], in that page's history. */
     fun addOperationsToHistory(pageId: String, operations: OperationBlock) {
         if (operations.isEmpty()) {
