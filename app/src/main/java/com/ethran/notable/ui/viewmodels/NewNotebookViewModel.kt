@@ -7,6 +7,7 @@ import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.Folder
 import com.ethran.notable.data.db.Notebook
+import com.ethran.notable.data.db.PageMode
 import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.ui.SnackConf
 import com.ethran.notable.ui.SnackDispatcher
@@ -39,6 +40,7 @@ data class NewNotebookState(
     val folderId: String?,
     val backgroundType: String,
     val background: String,
+    val pageMode: String = PageMode.INFINITE,
 )
 
 data class CreatedNotebook(val bookId: String, val pageId: String)
@@ -80,6 +82,8 @@ class NewNotebookViewModel @Inject constructor(
 
     fun setFolder(folderId: String?) = _state.update { it.copy(folderId = folderId) }
 
+    fun setPageMode(pageMode: String) = _state.update { it.copy(pageMode = pageMode) }
+
     /** A null [background] keeps the current one. */
     fun setBackground(type: String, background: String?) = _state.update {
         it.copy(backgroundType = type, background = background ?: it.background)
@@ -94,6 +98,7 @@ class NewNotebookViewModel @Inject constructor(
             parentFolderId = state.folderId,
             defaultBackground = state.background,
             defaultBackgroundType = state.backgroundType,
+            pageMode = state.pageMode,
         )
         viewModelScope.launch {
             try {

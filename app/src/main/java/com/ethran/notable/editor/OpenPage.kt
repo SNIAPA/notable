@@ -2,6 +2,7 @@ package com.ethran.notable.editor
 
 import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.db.Page
+import com.ethran.notable.data.db.PageMode
 import com.ethran.notable.data.db.getBackgroundType
 import com.ethran.notable.data.model.BackgroundType
 import io.shipbook.shipbooksdk.ShipBook
@@ -21,6 +22,8 @@ data class OpenPage(
     val record: Page? = null,
     /** Position within the notebook, or -1 for a loose page or before [load]. */
     val pageNumber: Int = -1,
+    /** Whether the page belongs to a notebook in [PageMode.PAGED], so it is one fixed sheet. */
+    val paged: Boolean = false,
 ) {
     val backgroundName: String
         get() = record?.background ?: "blank"
@@ -50,10 +53,9 @@ data class OpenPage(
                 log.e("Page($pageId) not found")
                 return OpenPage(pageId)
             }
-            val pageNumber = record.notebookId
-                ?.let { appRepository.bookRepository.getById(it)?.pageIds?.indexOf(pageId) }
-                ?: -1
-            return OpenPage(pageId, record, pageNumber)
+            val book = record.notebookId?.let { appRepository.bookRepository.getById(it) }
+            val pageNumber = book?.pageIds?.indexOf(pageId) ?: -1
+            return OpenPage(pageId, record, pageNumber, paged = book?.pageMode == PageMode.PAGED)
         }
     }
 }

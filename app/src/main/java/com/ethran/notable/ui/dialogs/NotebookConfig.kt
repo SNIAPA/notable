@@ -61,6 +61,7 @@ import com.ethran.notable.io.copyLink
 import com.ethran.notable.navigation.DeepLink
 import com.ethran.notable.ui.LocalSnackContext
 import com.ethran.notable.ui.components.BreadCrumb
+import com.ethran.notable.ui.components.PageModeField
 import com.ethran.notable.ui.components.PagePreview
 import com.ethran.notable.ui.components.ScaledDialog
 import com.ethran.notable.ui.viewmodels.NotebookConfigViewModel
@@ -131,6 +132,7 @@ fun NotebookConfigDialog(
             onRename = viewModel::setTitle,
             breadcrumbFolders = breadcrumbFolders,
             onChangeBackground = { showBackgroundSelector = !showBackgroundSelector },
+            onPageModeChange = viewModel::setPageMode,
             onLinkedChange = viewModel::setLinked,
             onDelete = { showDeleteDialog = true },
             onMove = { showMoveDialog = true },
@@ -150,6 +152,7 @@ private fun NotebookConfigContent(
     onRename: (String) -> Unit,
     breadcrumbFolders: List<Folder>,
     onChangeBackground: () -> Unit,
+    onPageModeChange: (String) -> Unit,
     onLinkedChange: (Boolean) -> Unit,
     onDelete: () -> Unit,
     onMove: () -> Unit,
@@ -259,6 +262,8 @@ private fun NotebookConfigContent(
                 }
             }
 
+            PageModeField(pageMode = book.pageMode, onChange = onPageModeChange)
+
             /* -------------- Linking to external files -----------*/
             NotebookLinkRow(linkedUri = book.linkedExternalUri, onLinkedChange = onLinkedChange)
 
@@ -324,6 +329,7 @@ private fun NotebookConfigPreview() {
         onRename = {},
         breadcrumbFolders = listOf(Folder(title = "Studies")),
         onChangeBackground = {},
+        onPageModeChange = {},
         onLinkedChange = {},
         onDelete = {},
         onMove = {},

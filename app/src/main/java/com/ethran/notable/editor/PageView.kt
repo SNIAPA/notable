@@ -11,6 +11,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Looper
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.res.imageResource
@@ -291,7 +292,33 @@ class PageView(
 
     /** The viewport [page] had when this view left it, or else unzoomed at its saved scroll. */
     private fun viewportToShow(page: OpenPage): PageViewport = synchronized(pageLock) {
-        leftPages[page.pageId] ?: PageViewport(scroll = Offset(0f, (page.record?.scroll ?: 0).toFloat()))
+        clampToSheet(
+            page,
+            leftPages[page.pageId] ?: PageViewport(scroll = Offset(0f, (page.record?.scroll ?: 0).toFloat()))
+        )
+    }
+
+    /**
+     * The sheet of a page in a paged notebook, in page coordinates: the screen's size in portrait.
+     * Null for a page that scrolls without end.
+     */
+    fun sheetOf(page: OpenPage): Size? =
+        if (page.paged) Size(min(SCREEN_WIDTH, SCREEN_HEIGHT).toFloat(), max(SCREEN_WIDTH, SCREEN_HEIGHT).toFloat())
+        else null
+
+    /**
+     * [viewport] limited to [page]'s sheet: zoom no lower than 1 and scroll that keeps the view
+     * inside the sheet. Unchanged for a page without a sheet.
+     */
+    private fun clampToSheet(page: OpenPage, viewport: PageViewport): PageViewport {
+        val sheet = sheetOf(page) ?: return viewport
+        val zoom = viewport.zoom.coerceAtLeast(1f)
+        val maxX = (sheet.width - viewWidth / zoom).coerceAtLeast(0f)
+        val maxY = (sheet.height - viewHeight / zoom).coerceAtLeast(0f)
+        return PageViewport(
+            Offset(viewport.scroll.x.coerceIn(0f, maxX), viewport.scroll.y.coerceIn(0f, maxY)),
+            zoom
+        )
     }
 
     /**
@@ -599,7 +626,9 @@ class PageView(
             (start.scroll.x + delta.x).coerceAtLeast(0f),
             (start.scroll.y + delta.y).coerceAtLeast(0f)
         )
-        if (!commitViewport(pageId, start.copy(scroll = newScroll))) return
+        val next = clampToSheet(openPage, start.copy(scroll = newScroll))
+        if (next == start) return
+        if (!commitViewport(pageId, next)) return
 
         CanvasEventBus.forceUpdate.emit(null)
     }
@@ -635,6 +664,8 @@ class PageView(
         if (start.scroll.y + deltaInPage.y < 0) {
             deltaInPage = deltaInPage.copy(y = -start.scroll.y)
         }
+        // A paged notebook's sheet also ends on the right and at the bottom.
+        deltaInPage = clampToSheet(openPage, start.copy(scroll = start.scroll + deltaInPage)).scroll - start.scroll
 
         // There is nothing to do, return.
         if (deltaInPage == Offset.Zero) return
@@ -720,22 +751,22 @@ class PageView(
         waitForDrawingWithSnack()
         val start = viewportStart(pageId) ?: return
         // Update the zoom factor
-        val newZoomLevel = calculateZoomLevel(scaleDelta, start.zoom)
+        val next = clampToSheet(openPage, start.copy(zoom = calculateZoomLevel(scaleDelta, start.zoom)))
 
         // If there's no actual zoom change, skip
-        if (newZoomLevel == start.zoom) {
+        if (next == start) {
             log.d("Zoom unchanged. Current level: ${start.zoom}")
             return
         }
-        log.d("New zoom level: $newZoomLevel")
-        redrawAt(pageId, start.copy(zoom = newZoomLevel))
+        log.d("New zoom level: ${next.zoom}")
+        redrawAt(pageId, next)
     }
 
     /** Unzooms the page and scrolls it back to its left edge, keeping its vertical scroll. */
     suspend fun resetView(pageId: String) {
         waitForDrawingWithSnack()
         val start = viewportStart(pageId) ?: return
-        redrawAt(pageId, PageViewport(scroll = Offset(0f, start.scroll.y)))
+        redrawAt(pageId, clampToSheet(openPage, PageViewport(scroll = Offset(0f, start.scroll.y))))
     }
 
     /** Moves [pageId]'s view to [next] and redraws it whole. */
@@ -787,6 +818,15 @@ class PageView(
         val newZoom = calculateZoomLevel(scaleDelta, oldZoom)
         if (newZoom == oldZoom) {
             log.d("Zoom unchanged. Current level: $oldZoom")
+            return
+        }
+        // On a sheet the view must stay inside it, so the pivoted snapshot cannot be reused: the
+        // clamped viewport is drawn whole.
+        if (sheetOf(openPage) != null) {
+            val pivot = center ?: Offset(viewWidth / 2f, viewHeight / 2f)
+            val pivotInPage = start.scroll + pivot / oldZoom
+            val next = clampToSheet(openPage, PageViewport(pivotInPage - pivot / newZoom, newZoom))
+            if (next != start) redrawAt(pageId, next)
             return
         }
 
@@ -940,6 +980,7 @@ class PageView(
             resourceBitmap = bgImage,
             scale = scale,
             repeat = false,
+            sheetEnd = sheetOf(shown)?.height,
         )
     }
 
@@ -995,7 +1036,7 @@ class PageView(
         synchronized(pageLock) {
             val shown = openPage
             if (disposed || shown.pageId != pageId || shown.record == null) return false
-            viewportFlow.value = next
+            viewportFlow.value = clampToSheet(shown, next)
         }
         pageDataManager.recordScroll(pageId, next.scroll.y.roundToInt())
         return true
