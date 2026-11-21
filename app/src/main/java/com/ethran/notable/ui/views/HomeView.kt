@@ -5,45 +5,41 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.Badge
-import androidx.compose.material.BadgedBox
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -51,22 +47,30 @@ import com.ethran.notable.R
 import com.ethran.notable.data.AppRepository
 import com.ethran.notable.data.db.Folder
 import com.ethran.notable.data.db.Notebook
+import com.ethran.notable.data.db.Page
 import com.ethran.notable.editor.EditorDestination
-import com.ethran.notable.editor.ui.Topbar
 import com.ethran.notable.editor.utils.autoEInkAnimationOnScroll
 import com.ethran.notable.navigation.NavigationDestination
 import com.ethran.notable.sync.SyncBadge
 import com.ethran.notable.ui.LocalSnackContext
 import com.ethran.notable.ui.SnackConf
 import com.ethran.notable.ui.components.BreadCrumb
+import com.ethran.notable.ui.components.NewPageButton
 import com.ethran.notable.ui.components.NotebookCard
-import com.ethran.notable.ui.components.ShowPagesRow
+import com.ethran.notable.ui.components.PageThumb
 import com.ethran.notable.ui.dialogs.ConflictResolutionDialog
 import com.ethran.notable.ui.dialogs.EmptyBookWarningHandler
 import com.ethran.notable.ui.dialogs.FolderConfigDialog
 import com.ethran.notable.ui.dialogs.NotebookConfigDialog
 import com.ethran.notable.ui.dialogs.PdfImportChoiceDialog
-import com.ethran.notable.ui.noRippleClickable
+import com.ethran.notable.ui.theme.Flush
+import com.ethran.notable.ui.theme.Ink
+import com.ethran.notable.ui.theme.InkButton
+import com.ethran.notable.ui.theme.InkIconButton
+import com.ethran.notable.ui.theme.InkRule
+import com.ethran.notable.ui.theme.InkSectionHeader
+import com.ethran.notable.ui.theme.InkTextButton
+import com.ethran.notable.ui.theme.InkTopBar
 import com.ethran.notable.ui.viewmodels.LibraryUiState
 import com.ethran.notable.ui.viewmodels.LibraryViewModel
 import compose.icons.FeatherIcons
@@ -126,7 +130,12 @@ fun Library(
 }
 
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
+/**
+ * The library screen: a top bar with the folder trail as its title and the create, import and
+ * settings actions, over one vertical scroll that holds the folders, quick pages and notebooks
+ * sections. Every section shares the page margin as its inline padding, so headings and card
+ * edges sit on the same keylines as the top bar.
+ */
 @Composable
 fun LibraryContent(
     appRepository: AppRepository,
@@ -143,377 +152,418 @@ fun LibraryContent(
     onImportXopp: (Uri) -> Unit,
     onPreviewMissing: (String) -> Unit
 ) {
-    Column(Modifier.fillMaxSize()) {
-        Topbar {
-            Row(Modifier.fillMaxWidth()) {
-                Spacer(modifier = Modifier.weight(1f))
-                BadgedBox(
-                    badge = {
-                        if (!uiState.isLatestVersion) Badge(
-                            backgroundColor = Color.Black,
-                            modifier = Modifier.offset((-12).dp, 10.dp)
-                        )
-                    }) {
-                    Icon(
-                        imageVector = FeatherIcons.Settings, contentDescription = "Settings",
-                        Modifier
-                            .padding(8.dp)
-                            .noRippleClickable(onClick = onNavigateToSettings)
-                    )
-                }
+    val (emptyBooks, books) = uiState.books.partition { it.pageIds.isEmpty() }
+
+    if (!uiState.isImporting) {
+        emptyBooks.forEach { book ->
+            key(book.id) {
+                EmptyBookWarningHandler(
+                    emptyBook = book,
+                    onDelete = { onDeleteEmptyBook(book.id) },
+                    onDismiss = { })
             }
-            Row(Modifier.padding(10.dp)) {
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Ink.paper)
+    ) {
+        InkTopBar(
+            leading = {
                 BreadCrumb(
                     folders = uiState.breadcrumbFolders, onSelectFolderId = onNavigateToFolder
                 )
-            }
-
-        }
-
-        Column(Modifier.padding(10.dp)) {
-            Spacer(Modifier.height(10.dp))
-
-            FolderList(
-                appRepository = appRepository,
-                folders = uiState.folders,
-                onNavigateToFolder = onNavigateToFolder,
-                onCreateNewFolder = onCreateNewFolder
-            )
-
-            Spacer(Modifier.height(10.dp))
-            ShowPagesRow(
-                appRepository = appRepository,
-                pages = uiState.singlePages,
-                currentPageId = null,
-                title = stringResource(R.string.home_quick_pages), onSelectPage = goToPage,
-                showAddQuickPage = true,
-                onCreateNewQuickPage = onCreateNewQuickPage,
-                onPreviewMissing = onPreviewMissing
-            )
-
-            Spacer(Modifier.height(10.dp))
-
-            NotebookGrid(
-                books = uiState.books,
-                isImporting = uiState.isImporting,
-                syncBadges = uiState.syncBadges,
-                onNavigateToEditor = onNavigateToEditor,
-                onDeleteEmptyBook = onDeleteEmptyBook,
-                onCreateNewNotebook = onCreateNewNotebook,
-                onImportPdf = onImportPdf,
-                onImportXopp = onImportXopp,
-                onPreviewMissing = onPreviewMissing
-            )
-        }
-    }
-
-
-}
-
-@Composable
-fun FolderList(
-    appRepository: AppRepository,
-    folders: List<Folder>,
-    onNavigateToFolder: (String) -> Unit, onCreateNewFolder: () -> Unit
-) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .autoEInkAnimationOnScroll()
-    ) {
-        item {
-            // Add new folder row
-            Row(
-                Modifier
-                    .border(0.5.dp, Color.Black)
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
-                    .noRippleClickable(onClick = onCreateNewFolder)
-            ) {
-                Icon(
-                    imageVector = FeatherIcons.FolderPlus, contentDescription = "Add Folder",
-                    Modifier.height(20.dp)
+            },
+            actions = {
+                ImportButton(onImportPdf = onImportPdf, onImportXopp = onImportXopp)
+                InkButton(
+                    text = stringResource(R.string.library_new_notebook),
+                    onClick = onCreateNewNotebook,
+                    primary = true,
+                    icon = FeatherIcons.FilePlus
                 )
-                Spacer(Modifier.width(10.dp))
-                Text(text = stringResource(R.string.home_add_new_folder))
+                SettingsButton(
+                    updateAvailable = !uiState.isLatestVersion,
+                    onClick = onNavigateToSettings
+                )
             }
-        }
+        )
 
-        if (folders.isNotEmpty()) {
-            items(folders) { folder ->
-                var isFolderSettingsOpen by remember { mutableStateOf(false) }
-                if (isFolderSettingsOpen) FolderConfigDialog(
-                    appRepository.folderRepository,
-                    folderId = folder.id,
-                    onClose = {
-                        log.i("Closing Directory Dialog")
-                        isFolderSettingsOpen = false
-                    })
-                Row(
-                    Modifier
-                        .combinedClickable(
-                            onClick = { onNavigateToFolder(folder.id) },
-                            onLongClick = { isFolderSettingsOpen = true })
-                        .border(0.5.dp, Color.Black)
-                        .padding(10.dp, 5.dp)
-                ) {
-                    Icon(
-                        imageVector = FeatherIcons.Folder, contentDescription = "Folder",
-                        Modifier.height(20.dp)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(text = folder.title)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun NotebookGrid(
-    books: List<Notebook>,
-    isImporting: Boolean,
-    syncBadges: Map<String, SyncBadge>,
-    onNavigateToEditor: (String, String) -> Unit,
-    onDeleteEmptyBook: (String) -> Unit,
-    onCreateNewNotebook: () -> Unit,
-    onImportPdf: (Uri, Boolean) -> Unit,
-    onImportXopp: (Uri) -> Unit,
-    onPreviewMissing: (String) -> Unit
-) {
-    Text(text = stringResource(R.string.home_notebooks))
-    Spacer(Modifier.height(10.dp))
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(100.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.autoEInkAnimationOnScroll()
-    ) {
-        item {
-            NotebookImportPanel(
-                onCreateNewNotebook = onCreateNewNotebook,
-                onImportPdf = onImportPdf,
-                onImportXopp = onImportXopp
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            // The column count GridCells.Adaptive(Ink.Size.card) would pick, computed here so card
+            // items know whether they start a section's first row.
+            val columns = maxOf(
+                1,
+                ((maxWidth - Ink.Space.margin * 2 + Ink.Space.gap) / (Ink.Size.card + Ink.Space.gap)).toInt()
             )
-        }
-
-        if (books.isNotEmpty()) {
-            // Keyed so an open dialog stays with its notebook when one is added before it.
-            items(books.reversed(), key = { it.id }) { book ->
-                if (book.pageIds.isEmpty()) {
-                    if (!isImporting) {
-                        EmptyBookWarningHandler(
-                            emptyBook = book,
-                            onDelete = { onDeleteEmptyBook(book.id) },
-                            onDismiss = { })
-                    }
-                    return@items
-                }
-                var isSettingsOpen by remember { mutableStateOf(false) }
-                var isConflictOpen by remember { mutableStateOf(false) }
-                NotebookCard(
-                    bookId = book.id,
-                    title = book.title,
-                    pageIds = book.pageIds,
-                    openPageId = book.openPageId,
-                    syncBadge = syncBadges[book.id],
-                    // A conflicted notebook opens the resolution dialog on tap — the reachable entry
-                    // point for the CONFLICT badge — instead of the editor.
-                    onOpen = { bookId, pageId ->
-                        if (syncBadges[bookId] == SyncBadge.CONFLICT) isConflictOpen = true
-                        else onNavigateToEditor(pageId, bookId)
-                    },
-                    onOpenSettings = { isSettingsOpen = true },
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columns),
+                horizontalArrangement = Arrangement.spacedBy(Ink.Space.gap),
+                contentPadding = PaddingValues(
+                    start = Ink.Space.margin,
+                    end = Ink.Space.margin,
+                    bottom = Ink.Space.margin
+                ),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .autoEInkAnimationOnScroll()
+            ) {
+                folderSection(
+                    appRepository = appRepository,
+                    folders = uiState.folders,
+                    perRow = maxOf(1, columns / 2),
+                    onNavigateToFolder = onNavigateToFolder,
+                    onCreateNewFolder = onCreateNewFolder
+                )
+                quickPageSection(
+                    afterContent = uiState.folders.isNotEmpty(),
+                    appRepository = appRepository,
+                    pages = uiState.singlePages,
+                    columns = columns,
+                    goToPage = goToPage,
+                    onCreateNewQuickPage = onCreateNewQuickPage,
                     onPreviewMissing = onPreviewMissing
                 )
-
-                if (isSettingsOpen) {
-                    NotebookConfigDialog(bookId = book.id, onClose = { isSettingsOpen = false })
-                }
-
-                if (isConflictOpen) {
-                    ConflictResolutionDialog(
-                        bookId = book.id,
-                        title = book.title,
-                        onClose = { isConflictOpen = false })
-                }
+                notebookSection(
+                    afterContent = uiState.singlePages.isNotEmpty(),
+                    books = books,
+                    inFolder = uiState.folderId != null,
+                    columns = columns,
+                    syncBadges = uiState.syncBadges,
+                    onNavigateToEditor = onNavigateToEditor,
+                    onCreateNewNotebook = onCreateNewNotebook,
+                    onPreviewMissing = onPreviewMissing
+                )
             }
         }
     }
 }
 
+/**
+ * A full-width section heading with [Ink.Space.s] below it. Above it sits [Ink.Space.section]
+ * when [afterContent] (the section before it shows items), else [Ink.Space.s], so empty sections
+ * stack as compact heading rows.
+ */
+private fun LazyGridScope.sectionHeader(
+    key: String,
+    text: @Composable () -> String,
+    afterContent: Boolean,
+    trailing: @Composable RowScope.() -> Unit = {},
+) {
+    item(key = key, span = { GridItemSpan(maxLineSpan) }) {
+        InkSectionHeader(
+            text = text(),
+            modifier = Modifier.padding(
+                top = if (afterContent) Ink.Space.section else Ink.Space.s,
+                bottom = Ink.Space.s
+            ),
+            trailing = trailing
+        )
+    }
+}
+
+/** Card items after a section's first row keep [Ink.Space.xl] from the row above. */
+private fun cardSpacing(index: Int, columns: Int): Modifier =
+    if (index >= columns) Modifier.padding(top = Ink.Space.xl) else Modifier
+
+/**
+ * The folders section: its heading with the "New folder" action, then the folders as an index of
+ * rows, [perRow] to a line. The heading stays when there are no folders so a folder can be made.
+ */
+private fun LazyGridScope.folderSection(
+    appRepository: AppRepository,
+    folders: List<Folder>,
+    perRow: Int,
+    onNavigateToFolder: (String) -> Unit,
+    onCreateNewFolder: () -> Unit,
+) {
+    sectionHeader(
+        key = "header:folders",
+        text = { stringResource(R.string.library_folders) },
+        afterContent = true
+    ) {
+        InkTextButton(
+            text = stringResource(R.string.library_new_folder),
+            onClick = onCreateNewFolder,
+            icon = FeatherIcons.FolderPlus,
+            flush = Flush.End
+        )
+    }
+    folders.chunked(perRow).forEach { line ->
+        item(key = "folders:${line.first().id}", span = { GridItemSpan(maxLineSpan) }) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Ink.Space.gap)
+            ) {
+                line.forEach { folder ->
+                    FolderRow(
+                        appRepository = appRepository,
+                        folder = folder,
+                        onNavigateToFolder = onNavigateToFolder,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                repeat(perRow - line.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/**
+ * One folder in the folders index: the folder glyph and title on a 48dp row with a hairline
+ * under it. Tap opens the folder, long-press opens its settings. The row inverts while pressed.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun NotebookImportPanel(
+private fun FolderRow(
+    appRepository: AppRepository,
+    folder: Folder,
+    onNavigateToFolder: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var isFolderSettingsOpen by remember { mutableStateOf(false) }
+    if (isFolderSettingsOpen) FolderConfigDialog(
+        appRepository.folderRepository,
+        folderId = folder.id,
+        onClose = {
+            log.i("Closing Directory Dialog")
+            isFolderSettingsOpen = false
+        })
+
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val fg = if (pressed) Ink.paper else Ink.ink
+    Column(modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = Ink.Size.target)
+                .background(if (pressed) Ink.ink else Ink.paper)
+                .combinedClickable(
+                    interactionSource = interaction,
+                    indication = null,
+                    role = Role.Button,
+                    onClick = { onNavigateToFolder(folder.id) },
+                    onLongClick = { isFolderSettingsOpen = true }),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Ink.Space.m)
+        ) {
+            Icon(
+                imageVector = FeatherIcons.Folder,
+                contentDescription = null,
+                tint = fg,
+                modifier = Modifier.size(Ink.Size.iconInline)
+            )
+            Text(
+                text = folder.title,
+                style = Ink.Type.label,
+                color = fg,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        InkRule()
+    }
+}
+
+/** The quick pages section: its heading with the "New page" action, then the loose pages. */
+private fun LazyGridScope.quickPageSection(
+    afterContent: Boolean,
+    appRepository: AppRepository,
+    pages: List<Page>,
+    columns: Int,
+    goToPage: (String) -> Unit,
+    onCreateNewQuickPage: () -> Unit,
+    onPreviewMissing: (String) -> Unit,
+) {
+    sectionHeader(
+        key = "header:pages",
+        text = { stringResource(R.string.home_quick_pages) },
+        afterContent = afterContent
+    ) {
+        NewPageButton(onClick = onCreateNewQuickPage)
+    }
+    itemsIndexed(pages.reversed(), key = { _, page -> "page:${page.id}" }) { index, page ->
+        PageThumb(
+            appRepository = appRepository,
+            page = page,
+            onSelectPage = goToPage,
+            onPreviewMissing = onPreviewMissing,
+            modifier = cardSpacing(index, columns)
+        )
+    }
+}
+
+/**
+ * The notebooks section: its heading, then the notebooks newest first, or the empty state when
+ * the location holds none. A conflicted notebook opens the conflict resolution dialog on tap,
+ * the reachable entry point for its conflict glyph; every other notebook opens in the editor.
+ */
+private fun LazyGridScope.notebookSection(
+    afterContent: Boolean,
+    books: List<Notebook>,
+    inFolder: Boolean,
+    columns: Int,
+    syncBadges: Map<String, SyncBadge>,
+    onNavigateToEditor: (String, String) -> Unit,
     onCreateNewNotebook: () -> Unit,
+    onPreviewMissing: (String) -> Unit,
+) {
+    sectionHeader(
+        key = "header:notebooks",
+        text = { stringResource(R.string.home_notebooks) },
+        afterContent = afterContent
+    )
+
+    if (books.isEmpty()) {
+        item(key = "notebooks:empty", span = { GridItemSpan(maxLineSpan) }) {
+            LibraryEmptyState(inFolder = inFolder, onCreateNewNotebook = onCreateNewNotebook)
+        }
+        return
+    }
+
+    // Keyed so an open dialog stays with its notebook when one is added before it.
+    itemsIndexed(books.reversed(), key = { _, book -> book.id }) { index, book ->
+        var isSettingsOpen by remember { mutableStateOf(false) }
+        var isConflictOpen by remember { mutableStateOf(false) }
+        NotebookCard(
+            modifier = cardSpacing(index, columns),
+            bookId = book.id,
+            title = book.title,
+            pageIds = book.pageIds,
+            openPageId = book.openPageId,
+            syncBadge = syncBadges[book.id],
+            onOpen = { bookId, pageId ->
+                if (syncBadges[bookId] == SyncBadge.CONFLICT) isConflictOpen = true
+                else onNavigateToEditor(pageId, bookId)
+            },
+            onOpenSettings = { isSettingsOpen = true },
+            onPreviewMissing = onPreviewMissing
+        )
+
+        if (isSettingsOpen) {
+            NotebookConfigDialog(bookId = book.id, onClose = { isSettingsOpen = false })
+        }
+
+        if (isConflictOpen) {
+            ConflictResolutionDialog(
+                bookId = book.id,
+                title = book.title,
+                onClose = { isConflictOpen = false })
+        }
+    }
+}
+
+/**
+ * The notebooks section when there are none: what is empty, what goes here, and the action that
+ * creates the first notebook.
+ */
+@Composable
+private fun LibraryEmptyState(inFolder: Boolean, onCreateNewNotebook: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(Ink.Space.s)) {
+        Text(
+            text = stringResource(
+                if (inFolder) R.string.library_empty_folder_title else R.string.library_empty_title
+            ),
+            style = Ink.Type.label
+        )
+        Text(
+            text = stringResource(R.string.library_empty_body),
+            style = Ink.Type.body,
+            color = Ink.ink2
+        )
+        InkButton(
+            text = stringResource(R.string.library_new_notebook),
+            onClick = onCreateNewNotebook,
+            icon = FeatherIcons.FilePlus,
+            modifier = Modifier.padding(top = Ink.Space.s)
+        )
+    }
+}
+
+/**
+ * The settings action, flush with the trailing keyline. While an update is available it carries
+ * the words "Update available" next to the glyph, since a badge dot does not read on e-ink.
+ */
+@Composable
+private fun SettingsButton(updateAvailable: Boolean, onClick: () -> Unit) {
+    if (updateAvailable) {
+        InkTextButton(
+            text = stringResource(R.string.library_update_available),
+            onClick = onClick,
+            icon = FeatherIcons.Settings,
+            flush = Flush.End
+        )
+    } else {
+        InkIconButton(
+            icon = FeatherIcons.Settings,
+            contentDescription = stringResource(R.string.settings_title),
+            onClick = onClick,
+            flush = Flush.End
+        )
+    }
+}
+
+/**
+ * The import action: opens the system document picker for PDF and Xournal++ files. A PDF asks
+ * whether to copy or observe the file before importing; any other file imports as Xournal++.
+ */
+@Composable
+private fun ImportButton(
     onImportPdf: (Uri, Boolean) -> Unit,
     onImportXopp: (Uri) -> Unit,
-    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val snackState = LocalSnackContext.current
-    var showPdfImportChoiceDialog by remember { mutableStateOf<Uri?>(null) }
+    var pdfToImport by remember { mutableStateOf<Uri?>(null) }
 
-    showPdfImportChoiceDialog?.let { uri ->
-        PdfImportChoiceDialog(uri = uri, onCopy = { uri ->
-            showPdfImportChoiceDialog = null
-            onImportPdf(uri, /* copy= */ true)
+    pdfToImport?.let { uri ->
+        PdfImportChoiceDialog(uri = uri, onCopy = {
+            pdfToImport = null
+            onImportPdf(it, /* copy= */ true)
         }, onObserve = {
-            showPdfImportChoiceDialog = null
+            pdfToImport = null
             onImportPdf(it, /* copy= */ false)
-        }, onDismiss = { showPdfImportChoiceDialog = null })
+        }, onDismiss = { pdfToImport = null })
     }
 
-
-    Box(
-        modifier = modifier
-            .width(100.dp)
-            .aspectRatio(3f / 4f)
-            .border(1.dp, Color.Gray, RectangleShape),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Create New Notebook Button (Top Half)
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f) // Takes half the height
-                    .fillMaxWidth()
-                    .background(Color.LightGray.copy(alpha = 0.3f))
-                    .border(2.dp, Color.Black, RectangleShape)
-                    .noRippleClickable(onClick = onCreateNewNotebook)
-            ) {
-                Icon(
-                    imageVector = FeatherIcons.FilePlus, contentDescription = "Create Notebook",
-                    tint = Color.Gray, modifier = Modifier.size(40.dp)
-                )
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri == null) {
+            log.w("OpenDocument: uri is null (user cancelled or provider returned null)")
+            return@rememberLauncherForActivityResult
+        }
+        try {
+            val mimeType = context.contentResolver.getType(uri)
+            log.d("Selected file mimeType: $mimeType, uri: $uri")
+            if (mimeType == "application/pdf" || uri.toString().endsWith(".pdf", ignoreCase = true)) {
+                pdfToImport = uri
+            } else {
+                onImportXopp(uri)
             }
-
-            val launcher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.OpenDocument()
-            ) { uri: Uri? ->
-                if (uri == null) {
-                    log.w("PickVisualMedia: uri is null (user cancelled or provider returned null)")
-                    return@rememberLauncherForActivityResult
-                }
-                try {
-
-                    val mimeType = context.contentResolver.getType(uri)
-                    log.d("Selected file mimeType: $mimeType, uri: $uri")
-                    if (mimeType == "application/pdf" || uri.toString()
-                            .endsWith(".pdf", ignoreCase = true)
-                    ) {
-                        showPdfImportChoiceDialog = uri
-                    } else {
-                        onImportXopp(uri)
-                    }
-                } catch (e: Exception) {
-                    log.e("contentPicker failed: ${e.message}", e)
-                    snackState.showOrUpdateSnack(SnackConf(text = "Importing failed: ${e.message}"))
-                }
-            }
-            // Import Notebook (Bottom Half)
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .background(Color.LightGray.copy(alpha = 0.3f))
-                    .border(2.dp, Color.Black, RectangleShape)
-                    .noRippleClickable {
-                        launcher.launch(
-                            arrayOf(
-                                "application/x-xopp",
-                                "application/gzip",
-                                "application/octet-stream",
-                                "application/pdf"
-                            )
-                        )
-                    }
-
-            ) {
-                Icon(
-                    imageVector = FeatherIcons.Upload,
-                    contentDescription = "Import Notebook",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(40.dp),
-                )
-            }
+        } catch (e: Exception) {
+            log.e("contentPicker failed: ${e.message}", e)
+            snackState.showOrUpdateSnack(
+                SnackConf(text = context.getString(R.string.library_import_failed, e.message))
+            )
         }
     }
-}
 
-
-@Preview(
-    showBackground = true,
-    name = "Library - Default State",
-    widthDp = 800,
-    heightDp = 1200
-)
-@Composable
-fun LibraryContentPreview() {
-    // 1. Create a dummy UI state with mock data
-    val mockUiState = LibraryUiState(
-        folderId = null,
-        isLatestVersion = true,
-        isImporting = false,
-        breadcrumbFolders = listOf(
-            // Optional: Add mock breadcrumbs if you want to preview nested folder state
-             Folder(id = "root", title = "Home", parentFolderId = null)
-        ),
-        folders = listOf(
-            // Adjust constructor arguments based on your exact entity definition
-            Folder(id = "folder_1", title = "Work Notes", parentFolderId = null),
-            Folder(id = "folder_2", title = "Personal", parentFolderId = null)
-        ),
-        books = listOf(
-            // Needs pageIds to render the card (empty books show a warning)
-            Notebook(id = "book_1", title = "Meeting Minutes", pageIds = listOf("page1", "page2")),
-            Notebook(id = "book_2", title = "Journal", pageIds = listOf("page3"))
-        ),
-        singlePages = emptyList() // Populate with mock Page() objects if you want to see Quick Pages
+    InkButton(
+        text = stringResource(R.string.library_import),
+        onClick = {
+            launcher.launch(
+                arrayOf(
+                    "application/x-xopp",
+                    "application/gzip",
+                    "application/octet-stream",
+                    "application/pdf"
+                )
+            )
+        },
+        icon = FeatherIcons.Upload
     )
-
-    // 2. Render the stateless component with empty lambdas
-//    LibraryContent(
-//        uiState = mockUiState,
-//        onNavigateToFolder = {},
-//        onNavigateToSettings = {},
-//        onNavigateToEditor = { _, _ -> },
-//        goToPage = {},
-//        onCreateNewQuickPage = {},
-//        onCreateNewFolder = {},
-//        onDeleteEmptyBook = {},
-//        onCreateNewNotebook = {},
-//        onImportPdf = { _, _ -> },
-//        onImportXopp = {})
-}
-
-@Suppress("UnusedVariable")
-@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
-@Preview(showBackground = true, name = "Library - Update Available & Importing")
-@Composable
-fun LibraryContentUpdatePreview() {
-    val mockUiState = LibraryUiState(
-        folderId = "folder_1",
-        isLatestVersion = false, // Will show the red badge on the settings icon
-        isImporting = true,      // Will hide the delete warning for empty books
-        breadcrumbFolders = emptyList(),
-        folders = emptyList(),
-        books = emptyList(),
-        singlePages = emptyList()
-    )
-
-//    LibraryContent(
-//        uiState = mockUiState,
-//        onNavigateToFolder = {},
-//        onNavigateToSettings = {},
-//        onNavigateToEditor = { _, _ -> },
-//        goToPage = {},
-//        onCreateNewQuickPage = {},
-//        onCreateNewFolder = {},
-//        onDeleteEmptyBook = {},
-//        onCreateNewNotebook = {},
-//        onImportPdf = { _, _ -> },
-//        onImportXopp = {})
 }

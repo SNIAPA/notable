@@ -11,7 +11,7 @@ import com.ethran.notable.editor.utils.Pen
 import com.ethran.notable.editor.utils.PenSetting
 
 /**
- * Wraps the two icon sources in use — drawable resources and Feather [ImageVector]s —
+ * Wraps the two icon sources in use - drawable resources and Feather [ImageVector]s -
  * so element specs can hold either.
  */
 sealed interface IconRef {
@@ -26,7 +26,7 @@ sealed interface IconRef {
  *
  * Deliberate deviation from the design doc's `(ToolbarUiState) -> Boolean`: settings
  * flags are not part of ToolbarUiState. The renderer must evaluate
- * these predicates **during composition**, passing `GlobalAppSettings.current` — that is
+ * these predicates **during composition**, passing `GlobalAppSettings.current` - that is
  * a Compose snapshot-state read, so setting changes recompose the toolbar automatically
  * (colored pens / neo tools toggle live). Do not cache the result outside composition.
  */
@@ -36,7 +36,7 @@ private val ALWAYS: VisibleWhen = { _, _ -> true }
 
 /**
  * A slot in the toolbar layout: what it looks like, when it shows, when it reads as
- * selected. Elements are pure specs — all mutation flows through [ToolbarAction] and
+ * selected. Elements are pure specs - all mutation flows through [ToolbarAction] and
  * the ViewModel; rendering is one generic composable (build-order step 3).
  */
 sealed interface ToolbarElement {
@@ -53,7 +53,7 @@ sealed interface ToolbarElement {
 /**
  * A pen instance, built from a [ToolbarPen] preset (see [ToolbarElements.penElement]).
  * Produces strokes; size/color configurable via its [StrokeSubmenuSpec]. Identity is the
- * preset id, not the base [Pen] type — two ballpens in different colors are two elements.
+ * preset id, not the base [Pen] type - two ballpens in different colors are two elements.
  */
 data class PenElement(
     override val icon: IconRef,
@@ -63,7 +63,7 @@ data class PenElement(
     val presetId: String,
     /** Base type: key into stroke DB rows and the StrokeStyleRegistry. */
     val pen: Pen,
-    /** The preset's color/size — fallback when absent from `ToolbarUiState.penSettings`. */
+    /** The preset's color/size - fallback when absent from `ToolbarUiState.penSettings`. */
     val setting: PenSetting,
     val submenu: StrokeSubmenuSpec,
 ) : ToolbarElement {
@@ -122,7 +122,7 @@ enum class CustomKind {
     PAGE_NAV, MENU, IMAGE_PICKER
 }
 
-/** Placeable vertical divider — lets users control grouping with the ordering mechanism. */
+/** Placeable vertical divider - lets users control grouping with the ordering mechanism. */
 data object DividerElement : ToolbarElement {
     override val id = ToolbarElementId.DIVIDER
     override val icon: IconRef? = null

@@ -1,28 +1,16 @@
 package com.ethran.notable.ui.theme
 
 import androidx.compose.material.Typography
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 
-// Set of Material typography styles to start with
+/** Material typography mapped onto the Ink type scale, for Material components still in use. */
 val Typography = Typography(
-    body1 = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp
-    )
-    /* Other default text styles to override
-    button = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.W500,
-        fontSize = 14.sp
-    ),
-    caption = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp
-    )
-    */
+    h5 = Ink.Type.title,
+    h6 = Ink.Type.title,
+    subtitle1 = Ink.Type.label,
+    subtitle2 = Ink.Type.label,
+    body1 = Ink.Type.body,
+    body2 = Ink.Type.body,
+    button = Ink.Type.label,
+    caption = Ink.Type.meta,
+    overline = Ink.Type.section,
 )

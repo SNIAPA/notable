@@ -10,14 +10,19 @@ import com.ethran.notable.editor.utils.Eraser
 import com.ethran.notable.editor.utils.Pen
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Clipboard
+import compose.icons.feathericons.Home
+import compose.icons.feathericons.Image
+import compose.icons.feathericons.Menu
+import compose.icons.feathericons.RotateCcw
+import compose.icons.feathericons.RotateCw
 import compose.icons.feathericons.EyeOff
 import compose.icons.feathericons.RefreshCcw
 
 /**
  * The registry: every placeable **static** toolbar element, keyed by id. Pen buttons are
- * not here — they are user-created [ToolbarPen] presets, resolved into [PenElement]s by
+ * not here - they are user-created [ToolbarPen] presets, resolved into [PenElement]s by
  * [ToolbarElements.resolve]. Adding a static tool = adding one entry here (plus, for
- * stroke-producing pens, a StrokeStyleRegistry entry — step 2). A unit test asserts every
+ * stroke-producing pens, a StrokeStyleRegistry entry - step 2). A unit test asserts every
  * [ToolbarElementId] except the pen sentinel resolves.
  */
 object ToolbarElements {
@@ -51,7 +56,7 @@ object ToolbarElements {
         ),
         CustomElement(
             id = ToolbarElementId.IMAGE,
-            icon = IconRef.Drawable(R.drawable.image),
+            icon = IconRef.Vector(FeatherIcons.Image),
             contentDescription = "Image picker",
             kind = CustomKind.IMAGE_PICKER,
         ),
@@ -72,13 +77,13 @@ object ToolbarElements {
 
         ActionElement(
             id = ToolbarElementId.UNDO,
-            icon = IconRef.Drawable(R.drawable.undo),
+            icon = IconRef.Vector(FeatherIcons.RotateCcw),
             contentDescription = "undo",
             action = ToolbarAction.Undo,
         ),
         ActionElement(
             id = ToolbarElementId.REDO,
-            icon = IconRef.Drawable(R.drawable.redo),
+            icon = IconRef.Vector(FeatherIcons.RotateCw),
             contentDescription = "redo",
             action = ToolbarAction.Redo,
         ),
@@ -91,13 +96,13 @@ object ToolbarElements {
         ),
         ActionElement(
             id = ToolbarElementId.HOME,
-            icon = IconRef.Drawable(R.drawable.home),
+            icon = IconRef.Vector(FeatherIcons.Home),
             contentDescription = "library",
             action = ToolbarAction.NavigateToHome,
         ),
         CustomElement(
             id = ToolbarElementId.MENU,
-            icon = IconRef.Drawable(R.drawable.menu),
+            icon = IconRef.Vector(FeatherIcons.Menu),
             contentDescription = "menu",
             kind = CustomKind.MENU,
         ),
@@ -107,13 +112,13 @@ object ToolbarElements {
     fun of(id: ToolbarElementId): ToolbarElement =
         all.getValue(id)
 
-    /** Icon for a base pen type. Legacy color variants share the plain ballpen icon —
+    /** Icon for a base pen type. Legacy color variants share the plain ballpen icon -
      * the button's tint comes from the preset's color. */
     fun penIcon(pen: Pen): IconRef = IconRef.Drawable(
         when (pen) {
             Pen.BALLPEN, Pen.REDBALLPEN, Pen.GREENBALLPEN, Pen.BLUEBALLPEN -> R.drawable.ballpen
             Pen.PENCIL -> R.drawable.pencil        // charcoal V1, labelled "Pencil"
-            Pen.CHARCOAL -> R.drawable.sponge      // charcoal V2 — sponge icon
+            Pen.CHARCOAL -> R.drawable.sponge      // charcoal V2 - sponge icon
             Pen.BRUSH -> R.drawable.brush
             Pen.MARKER -> R.drawable.marker
             Pen.FOUNTAIN -> R.drawable.fountain
@@ -123,7 +128,7 @@ object ToolbarElements {
     )
 
     /** Builds the toolbar element for a pen preset. The StrokeMenu options come from the
-     * preset itself — which colors/sizes appear is per-pen, edited in toolbar settings. */
+     * preset itself - which colors/sizes appear is per-pen, edited in toolbar settings. */
     fun penElement(preset: ToolbarPen): PenElement = PenElement(
         icon = penIcon(preset.pen),
         contentDescription = preset.pen.penName,
@@ -136,13 +141,13 @@ object ToolbarElements {
         ),
     )
 
-    /** "3", "5", "10" — numeric labels; custom option sets have no natural S/M/L names. */
+    /** "3", "5", "10" - numeric labels; custom option sets have no natural S/M/L names. */
     fun sizeLabel(size: Float): String =
         if (size == size.toInt().toFloat()) size.toInt().toString() else size.toString()
 
     /**
      * Resolves a persisted layout entry: `"PEN:<id>"` against the preset list, anything
-     * else against the static registry. Null for unknown names and deleted presets —
+     * else against the static registry. Null for unknown names and deleted presets -
      * callers skip those entries.
      */
     fun resolve(name: String, pens: List<ToolbarPen>): ToolbarElement? {
@@ -155,7 +160,7 @@ object ToolbarElements {
     }
 
     /**
-     * Collapsed-toolbar icon: the mode tool if one is selected (shape/eraser/select —
+     * Collapsed-toolbar icon: the mode tool if one is selected (shape/eraser/select -
      * in Line mode the shape button wins over the pen, matching old behavior), otherwise
      * the active pen preset's icon.
      */
@@ -163,7 +168,7 @@ object ToolbarElements {
         all.values.firstOrNull { it.isSelected(state) }?.icon?.let { return it }
         val pen = pens.find { it.id == state.penPresetId }?.pen
         // No preset matches only if the active one was deleted (or the transient DASHED
-        // erase indicator) — show the dashed-line icon, mirroring the old fallback.
+        // erase indicator) - show the dashed-line icon, mirroring the old fallback.
         return pen?.let(::penIcon) ?: IconRef.Drawable(R.drawable.line_dashed)
     }
 }

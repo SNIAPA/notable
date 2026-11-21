@@ -10,7 +10,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import com.ethran.notable.ui.theme.Ink
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -37,7 +37,7 @@ fun PagePreview(
     val context = LocalContext.current
 
     if (isPreview) {
-        Box(modifier = modifier.background(Color.LightGray))
+        Box(modifier = modifier.background(Ink.paper))
         return
     }
 
@@ -85,6 +85,6 @@ fun PagePreview(
         painter = painter,
         contentDescription = "Page Preview",
         contentScale = ContentScale.FillWidth,
-        modifier = modifier.background(Color.LightGray)
+        modifier = modifier.background(Ink.paper)
     )
 }
